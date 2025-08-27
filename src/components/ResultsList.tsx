@@ -71,7 +71,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
     },
     {
       enabled: showSimilar && showSimilarPanel && !!selectedDocumentId,
-    },
+    }
   );
 
   // Update visible results when results change
@@ -91,7 +91,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
       {
         threshold: 0.1,
         rootMargin: "100px",
-      },
+      }
     );
 
     const currentRef = loadMoreRef.current;
@@ -118,9 +118,9 @@ const ResultsList: React.FC<ResultsListProps> = ({
 
     terms.forEach((term) => {
       const regex = new RegExp(`(${term})`, "gi");
-      highlightedText = highlightedText.replace(
+      highlightedText = highlightedText?.replace(
         regex,
-        '<mark class="bg-yellow-200 px-1 rounded">$1</mark>',
+        '<mark class="bg-yellow-200 px-1 rounded">$1</mark>'
       );
     });
 
@@ -209,7 +209,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
                   "flex items-center px-3 py-1 text-sm rounded-md transition-colors",
                   showStatsPanel
                     ? "bg-blue-100 text-blue-700"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 )}
               >
                 <BarChart3 className="h-4 w-4 mr-1" />
@@ -223,7 +223,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
                   "flex items-center px-3 py-1 text-sm rounded-md transition-colors",
                   showSimilarPanel
                     ? "bg-green-100 text-green-700"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 )}
               >
                 <Shuffle className="h-4 w-4 mr-1" />
@@ -252,30 +252,78 @@ const ResultsList: React.FC<ResultsListProps> = ({
               Failed to load statistics
             </div>
           ) : searchStatsData ? (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div className="space-y-4">
+              {/* Storage Statistics */}
               <div>
-                <div className="text-blue-700 font-medium">
-                  {searchStatsData.totalDocuments}
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Storage</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.storage?.documentCount || 0}
+                    </div>
+                    <div className="text-blue-600">Documents</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.storage?.embeddingCount || 0}
+                    </div>
+                    <div className="text-blue-600">Embeddings</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.storage?.totalSize ? `${Math.round(searchStatsData.storage.totalSize / 1024)}KB` : '0KB'}
+                    </div>
+                    <div className="text-blue-600">Total Size</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.storage?.averageChunksPerDocument ? searchStatsData.storage.averageChunksPerDocument.toFixed(1) : '0'}
+                    </div>
+                    <div className="text-blue-600">Avg Chunks/Doc</div>
+                  </div>
                 </div>
-                <div className="text-blue-600">Total Documents</div>
               </div>
+              
+              {/* Search Configuration */}
               <div>
-                <div className="text-blue-700 font-medium">
-                  {searchStatsData.indexedDocuments}
+                <h4 className="text-sm font-medium text-blue-800 mb-2">Search Configuration</h4>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.search?.defaultThreshold || 0.7}
+                    </div>
+                    <div className="text-blue-600">Default Threshold</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.search?.maxResults || 50}
+                    </div>
+                    <div className="text-blue-600">Max Results</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-700 font-medium">
+                      {searchStatsData.search?.supportedFileTypes?.length || 0}
+                    </div>
+                    <div className="text-blue-600">File Types</div>
+                  </div>
                 </div>
-                <div className="text-blue-600">Indexed</div>
-              </div>
-              <div>
-                <div className="text-blue-700 font-medium">
-                  {searchStatsData.totalSearches}
-                </div>
-                <div className="text-blue-600">Total Searches</div>
-              </div>
-              <div>
-                <div className="text-blue-700 font-medium">
-                  {Math.round(searchStatsData.averageResponseTime)}ms
-                </div>
-                <div className="text-blue-600">Avg Response</div>
+                
+                {/* Supported File Types */}
+                {searchStatsData.search?.supportedFileTypes && (
+                  <div className="mt-3">
+                    <div className="text-xs text-blue-600 mb-2">Supported File Types:</div>
+                    <div className="flex flex-wrap gap-1">
+                      {searchStatsData.search.supportedFileTypes.map((type, index) => (
+                        <span
+                          key={index}
+                          className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded"
+                        >
+                          {type.toUpperCase()}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : null}
@@ -335,7 +383,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
       <div className="grid gap-4">
         {visibleResults.map((result, index) => (
           <div
-            key={`${result.id}-${index}`}
+            key={`${result._id || result.documentId}-${index}`}
             onClick={(e) => handleResultClick(result, e)}
             className="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md hover:border-gray-300 transition-all duration-200 cursor-pointer group"
           >
@@ -344,8 +392,8 @@ const ResultsList: React.FC<ResultsListProps> = ({
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
                   {highlightText(
-                    result.title || result.documentName,
-                    searchQuery,
+                    result?.title || result?.fileName || result?.documentName,
+                    searchQuery
                   )}
                 </h3>
                 <div className="flex items-center mt-1 text-sm text-gray-500 space-x-4">
@@ -355,13 +403,31 @@ const ResultsList: React.FC<ResultsListProps> = ({
                       <span className="truncate">{result.folderName}</span>
                     </div>
                   )}
-                  <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    <span>{formatDate(result.dateIndexed)}</span>
-                  </div>
+                  {result.fileType && (
+                    <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                      {result.fileType.toUpperCase()}
+                    </div>
+                  )}
+                  {result.metadata?.createdAt && (
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      <span>{formatDate(result.metadata.createdAt)}</span>
+                    </div>
+                  )}
+                  {result.dateIndexed && !result.metadata?.createdAt && (
+                    <div className="flex items-center">
+                      <Calendar className="h-4 w-4 mr-1" />
+                      <span>{formatDate(result.dateIndexed)}</span>
+                    </div>
+                  )}
                   {result.score && (
                     <div className="text-xs bg-gray-100 px-2 py-1 rounded">
                       {Math.round(result.score * 100)}% match
+                    </div>
+                  )}
+                  {result.chunkIndex !== undefined && (
+                    <div className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                      Chunk {result.chunkIndex + 1}
                     </div>
                   )}
                 </div>
@@ -369,7 +435,13 @@ const ResultsList: React.FC<ResultsListProps> = ({
 
               {/* External Link Button */}
               <button
-                onClick={(e) => handleExternalLinkClick(result.driveUrl, e)}
+                onClick={(e) =>
+                  handleExternalLinkClick(
+                    result.driveUrl ||
+                      `https://drive.google.com/file/d/${result.documentId}/view`,
+                    e
+                  )
+                }
                 className="external-link flex-shrink-0 ml-4 p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                 title="Open in Google Drive"
               >
@@ -380,15 +452,44 @@ const ResultsList: React.FC<ResultsListProps> = ({
             {/* Snippet */}
             <div className="text-gray-700 leading-relaxed">
               <p className="line-clamp-3">
-                {highlightText(result.snippet, searchQuery)}
+                {highlightText(result.text || result.snippet, searchQuery)}
               </p>
             </div>
+
+            {/* Metadata Footer */}
+            {result.metadata && (
+              <div className="mt-3 p-3 bg-gray-50 rounded-md text-xs text-gray-600">
+                <div className="grid grid-cols-2 gap-2">
+                  {result.metadata.textLength && (
+                    <div>
+                      <span className="font-medium">Length:</span>{" "}
+                      {result.metadata.textLength} chars
+                    </div>
+                  )}
+                  {result.metadata.startPosition !== undefined && (
+                    <div>
+                      <span className="font-medium">Position:</span>{" "}
+                      {result.metadata.startPosition}-
+                      {result.metadata.endPosition}
+                    </div>
+                  )}
+                  {result.metadata.mimeType && (
+                    <div>
+                      <span className="font-medium">Type:</span>{" "}
+                      {result.metadata.mimeType}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Footer */}
             <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
               <div className="flex items-center text-sm text-gray-500">
                 <FileText className="h-4 w-4 mr-1" />
-                <span className="truncate">{result.documentName}</span>
+                <span className="truncate">
+                  {result.fileName || result.documentName}
+                </span>
               </div>
 
               <div className="text-xs text-gray-400">Click to preview</div>

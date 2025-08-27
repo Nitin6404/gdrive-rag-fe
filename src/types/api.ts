@@ -1,40 +1,65 @@
 export interface SearchResult {
-  id: string;
-  title: string;
-  snippet: string;
-  documentName: string;
+  id?: string;
+  _id?: string;
+  title?: string;
+  text?: string;
+  snippet?: string;
+  documentName?: string;
+  fileName?: string;
   folderName?: string;
-  dateIndexed: string;
-  driveUrl: string;
+  dateIndexed?: string;
+  driveUrl?: string;
   score?: number;
+  documentId?: string;
+  fileType?: string;
+  chunkIndex?: number;
+  metadata?: {
+    documentId?: string;
+    fileName?: string;
+    fileType?: string;
+    mimeType?: string;
+    chunkIndex?: number;
+    startPosition?: number;
+    endPosition?: number;
+    textLength?: number;
+    createdAt?: string;
+  };
 }
 
 export interface SearchResponse {
-  results: SearchResult[];
-  total: number;
-  hasMore: boolean;
-  nextCursor?: string;
+  success: boolean;
+  data: {
+    results: SearchResult[];
+    total: number;
+    hasMore: boolean;
+    nextCursor?: string;
+  };
 }
 
 export interface RAGQueryRequest {
-  query: string;
+  question: string;
   folderId?: string;
   contextType?: "folder" | "document";
   maxResults?: number;
 }
 
 export interface RAGSource {
-  id: string;
-  title: string;
+  documentId: string;
+  fileName: string;
+  fileType: string;
   snippet: string;
   driveUrl: string;
   relevanceScore: number;
 }
 
 export interface RAGResponse {
-  answer: string;
-  sources: RAGSource[];
-  conversationId?: string;
+  success: boolean;
+  message: string;
+  data: {
+    answer: string;
+    sources: RAGSource[];
+    conversationId?: string;
+  };
 }
 
 export interface DocumentDetails {
@@ -108,20 +133,34 @@ export interface SemanticSearchRequest {
 }
 
 export interface SearchSuggestionsResponse {
-  suggestions: string[];
+  success: boolean;
+  data: {
+    suggestions: string[];
+  };
 }
 
 export interface SimilarDocumentsResponse {
-  documents: SearchResult[];
-  total: number;
+  success: boolean;
+  data: {
+    documents: SearchResult[];
+    total: number;
+    limit: number;
+    offset: number;
+  };
 }
 
 export interface SearchStatsResponse {
-  totalDocuments: number;
-  indexedDocuments: number;
-  totalChunks: number;
-  averageProcessingTime: number;
-  lastIndexUpdate: string;
+  storage: {
+    documentCount: number;
+    embeddingCount: number;
+    totalSize: number;
+    averageChunksPerDocument: number;
+  };
+  search: {
+    defaultThreshold: number;
+    maxResults: number;
+    supportedFileTypes: string[];
+  };
 }
 
 // Document Management Types

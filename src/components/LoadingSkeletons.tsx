@@ -1,5 +1,20 @@
 import React from "react";
 
+// Loading Spinner Component
+export const LoadingSpinner: React.FC<{ size?: 'sm' | 'md' | 'lg' }> = ({ size = 'md' }) => {
+  const sizeClasses = {
+    sm: 'h-4 w-4',
+    md: 'h-6 w-6',
+    lg: 'h-8 w-8'
+  };
+
+  return (
+    <div className="flex justify-center items-center">
+      <div className={`${sizeClasses[size]} border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin`}></div>
+    </div>
+  );
+};
+
 // Search Bar Loading Skeleton
 export const SearchBarSkeleton: React.FC = () => {
   return (

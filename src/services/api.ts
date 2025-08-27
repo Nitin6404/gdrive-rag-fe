@@ -66,7 +66,7 @@ class ApiService {
       },
       (error) => {
         return Promise.reject(error);
-      },
+      }
     );
 
     // Response interceptor
@@ -95,7 +95,7 @@ class ApiService {
         }
 
         return Promise.reject(apiError);
-      },
+      }
     );
   }
 
@@ -106,9 +106,9 @@ class ApiService {
       folderId?: string;
       limit?: number;
       cursor?: string;
-    },
+    }
   ): Promise<SearchResponse> {
-    const response = await this.api.post("/search/", {
+    const response = await this.api.post("/search/semantic", {
       query,
       ...options,
     });
@@ -117,7 +117,7 @@ class ApiService {
 
   async getAutocomplete(
     query: string,
-    limit: number = 5,
+    limit: number = 5
   ): Promise<AutocompleteResponse> {
     const response = await this.api.post("/search/suggestions", {
       query,
@@ -140,7 +140,7 @@ class ApiService {
   }
 
   async uploadDocument(
-    request: UploadDocumentRequest,
+    request: UploadDocumentRequest
   ): Promise<UploadDocumentResponse> {
     const formData = new FormData();
     formData.append("file", request.file);
@@ -173,7 +173,7 @@ class ApiService {
 
   // Enhanced Search endpoints
   async semanticSearch(
-    request: SemanticSearchRequest,
+    request: SemanticSearchRequest
   ): Promise<SearchResponse> {
     const response = await this.api.post("/search/semantic", request);
     return response.data;
@@ -181,10 +181,10 @@ class ApiService {
 
   async getSearchSuggestions(
     query: string,
-    limit: number = 5,
+    limit: number = 5
   ): Promise<SearchSuggestionsResponse> {
     const response = await this.api.get(
-      `/search/suggestions?q=${encodeURIComponent(query)}&limit=${limit}`,
+      `/search/suggestions?q=${encodeURIComponent(query)}&limit=${limit}`
     );
     return response.data;
   }
@@ -192,10 +192,10 @@ class ApiService {
   async getSimilarDocuments(
     documentId: string,
     limit: number = 10,
-    threshold: number = 0.7,
+    threshold: number = 0.7
   ): Promise<SimilarDocumentsResponse> {
     const response = await this.api.get(
-      `/search/similar/${documentId}?limit=${limit}&threshold=${threshold}`,
+      `/search/similar/${documentId}?limit=${limit}&threshold=${threshold}`
     );
     return response.data;
   }
@@ -207,7 +207,7 @@ class ApiService {
 
   // Enhanced Document Management
   async getDocuments(
-    request?: DocumentListRequest,
+    request?: DocumentListRequest
   ): Promise<DocumentListResponse> {
     const params = new URLSearchParams();
     if (request?.folderId) params.append("folderId", request.folderId);
@@ -221,17 +221,17 @@ class ApiService {
 
   async indexDocument(
     documentId: string,
-    request?: IndexDocumentRequest,
+    request?: IndexDocumentRequest
   ): Promise<ApiResponse<any>> {
     const response = await this.api.post(
       `/documents/${documentId}/index`,
-      request || {},
+      request || {}
     );
     return response.data;
   }
 
   async batchIndexDocuments(
-    request: BatchIndexRequest,
+    request: BatchIndexRequest
   ): Promise<ApiResponse<any>> {
     const response = await this.api.post("/documents/batch/index", request);
     return response.data;
@@ -245,7 +245,7 @@ class ApiService {
   async getIndexedDocuments(
     limit?: number,
     offset?: number,
-    fileType?: string,
+    fileType?: string
   ): Promise<IndexedDocumentsResponse> {
     const params = new URLSearchParams();
     if (limit) params.append("limit", limit.toString());
@@ -253,21 +253,21 @@ class ApiService {
     if (fileType) params.append("fileType", fileType);
 
     const response = await this.api.get(
-      `/documents/indexed?${params.toString()}`,
+      `/documents/indexed?${params.toString()}`
     );
     return response.data;
   }
 
   async getFolders(
     parentId?: string,
-    limit?: number,
+    limit?: number
   ): Promise<FoldersResponse> {
     const params = new URLSearchParams();
     if (parentId) params.append("parentId", parentId);
     if (limit) params.append("limit", limit.toString());
 
     const response = await this.api.get(
-      `/documents/folders/list?${params.toString()}`,
+      `/documents/folders/list?${params.toString()}`
     );
     return response.data;
   }
@@ -289,7 +289,7 @@ class ApiService {
   }
 
   async compareDocuments(
-    request: CompareDocumentsRequest,
+    request: CompareDocumentsRequest
   ): Promise<RAGResponse> {
     const response = await this.api.post("/rag/compare", request);
     return response.data;
@@ -303,7 +303,7 @@ class ApiService {
   // Enhanced Snippets endpoints
   async getDocumentSnippets(
     documentId: string,
-    request?: DocumentSnippetsRequest,
+    request?: DocumentSnippetsRequest
   ): Promise<DocumentSnippetsResponse> {
     const params = new URLSearchParams();
     if (request?.limit) params.append("limit", request.limit.toString());
@@ -312,30 +312,30 @@ class ApiService {
       params.append("includeText", request.includeText.toString());
 
     const response = await this.api.get(
-      `/snippets/${documentId}?${params.toString()}`,
+      `/snippets/${documentId}?${params.toString()}`
     );
     return response.data;
   }
 
   async getSpecificSnippet(
     documentId: string,
-    chunkIndex: number,
+    chunkIndex: number
   ): Promise<SpecificSnippetResponse> {
     const response = await this.api.get(
-      `/snippets/${documentId}/${chunkIndex}`,
+      `/snippets/${documentId}/${chunkIndex}`
     );
     return response.data;
   }
 
   async searchSnippets(
-    request: SnippetSearchRequest,
+    request: SnippetSearchRequest
   ): Promise<SnippetSearchResponse> {
     const response = await this.api.post("/snippets/search", request);
     return response.data;
   }
 
   async getRandomSnippets(
-    request?: RandomSnippetsRequest,
+    request?: RandomSnippetsRequest
   ): Promise<RandomSnippetsResponse> {
     const params = new URLSearchParams();
     if (request?.count) params.append("count", request.count.toString());
@@ -345,7 +345,7 @@ class ApiService {
       params.append("minLength", request.minLength.toString());
 
     const response = await this.api.get(
-      `/snippets/random/sample?${params.toString()}`,
+      `/snippets/random/sample?${params.toString()}`
     );
     return response.data;
   }
@@ -358,7 +358,7 @@ class ApiService {
   // Utility method for retrying failed requests
   async retryRequest<T>(
     requestFn: () => Promise<T>,
-    maxRetries: number = 3,
+    maxRetries: number = 3
   ): Promise<T> {
     let lastError: ApiError;
 
@@ -376,7 +376,7 @@ class ApiService {
         // Wait before retrying (exponential backoff)
         if (attempt < maxRetries) {
           await new Promise((resolve) =>
-            setTimeout(resolve, Math.pow(2, attempt) * 1000),
+            setTimeout(resolve, Math.pow(2, attempt) * 1000)
           );
         }
       }

@@ -53,13 +53,14 @@ export const useSearch = (
   queryOptions?: Omit<
     UseQueryOptions<SearchResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["search", query, options],
     queryFn: () => apiService.search(query, options),
     enabled: !!query && query.length > 0,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    select: (data) => data.data,
     ...queryOptions,
   });
 };
@@ -70,7 +71,7 @@ export const useAutocomplete = (
   queryOptions?: Omit<
     UseQueryOptions<AutocompleteResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["autocomplete", query, limit],
@@ -83,7 +84,7 @@ export const useAutocomplete = (
 
 // RAG hooks
 export const useRAGQuery = (
-  options?: UseMutationOptions<RAGResponse, ApiError, RAGQueryRequest>,
+  options?: UseMutationOptions<RAGResponse, ApiError, RAGQueryRequest>
 ) => {
   const queryClient = useQueryClient();
 
@@ -103,7 +104,7 @@ export const useDocument = (
   queryOptions?: Omit<
     UseQueryOptions<DocumentDetails, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["document", documentId],
@@ -119,7 +120,7 @@ export const useUploadDocument = (
     UploadDocumentResponse,
     ApiError,
     UploadDocumentRequest
-  >,
+  >
 ) => {
   const queryClient = useQueryClient();
 
@@ -140,7 +141,7 @@ export const useSnippets = (
   queryOptions?: Omit<
     UseQueryOptions<SnippetResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["snippets", request],
@@ -156,7 +157,7 @@ export const useRetryableQuery = <T>(
   queryKey: any[],
   queryFn: () => Promise<T>,
   maxRetries: number = 3,
-  queryOptions?: Omit<UseQueryOptions<T, ApiError>, "queryKey" | "queryFn">,
+  queryOptions?: Omit<UseQueryOptions<T, ApiError>, "queryKey" | "queryFn">
 ) => {
   return useQuery({
     queryKey,
@@ -179,7 +180,7 @@ export const useInfiniteSearch = (
   options?: {
     folderId?: string;
     limit?: number;
-  },
+  }
 ) => {
   return useQuery({
     queryKey: ["infiniteSearch", query, options],
@@ -202,7 +203,7 @@ export const useHealth = (
   queryOptions?: Omit<
     UseQueryOptions<HealthResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["health"],
@@ -219,7 +220,7 @@ export const useSemanticSearch = (
   queryOptions?: Omit<
     UseQueryOptions<SearchResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["semanticSearch", request],
@@ -236,7 +237,7 @@ export const useSearchSuggestions = (
   queryOptions?: Omit<
     UseQueryOptions<SearchSuggestionsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["searchSuggestions", query, limit],
@@ -254,7 +255,7 @@ export const useSimilarDocuments = (
   queryOptions?: Omit<
     UseQueryOptions<SimilarDocumentsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["similarDocuments", documentId, limit, threshold],
@@ -269,7 +270,7 @@ export const useSearchStats = (
   queryOptions?: Omit<
     UseQueryOptions<SearchStatsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["searchStats"],
@@ -285,7 +286,7 @@ export const useDocuments = (
   queryOptions?: Omit<
     UseQueryOptions<DocumentListResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["documents", request],
@@ -300,7 +301,7 @@ export const useIndexDocument = (
     ApiResponse<any>,
     ApiError,
     { documentId: string; request?: IndexDocumentRequest }
-  >,
+  >
 ) => {
   const queryClient = useQueryClient();
 
@@ -317,7 +318,7 @@ export const useIndexDocument = (
 };
 
 export const useBatchIndexDocuments = (
-  options?: UseMutationOptions<ApiResponse<any>, ApiError, BatchIndexRequest>,
+  options?: UseMutationOptions<ApiResponse<any>, ApiError, BatchIndexRequest>
 ) => {
   const queryClient = useQueryClient();
 
@@ -334,7 +335,7 @@ export const useBatchIndexDocuments = (
 };
 
 export const useRemoveDocumentFromIndex = (
-  options?: UseMutationOptions<ApiResponse<any>, ApiError, string>,
+  options?: UseMutationOptions<ApiResponse<any>, ApiError, string>
 ) => {
   const queryClient = useQueryClient();
 
@@ -357,7 +358,7 @@ export const useIndexedDocuments = (
   queryOptions?: Omit<
     UseQueryOptions<IndexedDocumentsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["indexedDocuments", limit, offset, fileType],
@@ -373,7 +374,7 @@ export const useFolders = (
   queryOptions?: Omit<
     UseQueryOptions<FoldersResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["folders", parentId, limit],
@@ -386,7 +387,7 @@ export const useFolders = (
 
 // Enhanced RAG Hooks
 export const useMultiStepRAG = (
-  options?: UseMutationOptions<RAGResponse, ApiError, MultiStepRAGRequest>,
+  options?: UseMutationOptions<RAGResponse, ApiError, MultiStepRAGRequest>
 ) => {
   const queryClient = useQueryClient();
 
@@ -401,7 +402,7 @@ export const useMultiStepRAG = (
 };
 
 export const useConversationRAG = (
-  options?: UseMutationOptions<RAGResponse, ApiError, ConversationRAGRequest>,
+  options?: UseMutationOptions<RAGResponse, ApiError, ConversationRAGRequest>
 ) => {
   const queryClient = useQueryClient();
 
@@ -416,7 +417,7 @@ export const useConversationRAG = (
 };
 
 export const useSummarizeDocument = (
-  options?: UseMutationOptions<RAGResponse, ApiError, SummarizeRequest>,
+  options?: UseMutationOptions<RAGResponse, ApiError, SummarizeRequest>
 ) => {
   const queryClient = useQueryClient();
 
@@ -431,7 +432,7 @@ export const useSummarizeDocument = (
 };
 
 export const useCompareDocuments = (
-  options?: UseMutationOptions<RAGResponse, ApiError, CompareDocumentsRequest>,
+  options?: UseMutationOptions<RAGResponse, ApiError, CompareDocumentsRequest>
 ) => {
   const queryClient = useQueryClient();
 
@@ -441,7 +442,7 @@ export const useCompareDocuments = (
     onSuccess: (data, variables) => {
       queryClient.setQueryData(
         ["compare", variables.documentIds.sort().join(",")],
-        data,
+        data
       );
     },
     ...options,
@@ -452,7 +453,7 @@ export const useRAGConfig = (
   queryOptions?: Omit<
     UseQueryOptions<RAGConfigResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["ragConfig"],
@@ -469,7 +470,7 @@ export const useDocumentSnippets = (
   queryOptions?: Omit<
     UseQueryOptions<DocumentSnippetsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["documentSnippets", documentId, request],
@@ -486,7 +487,7 @@ export const useSpecificSnippet = (
   queryOptions?: Omit<
     UseQueryOptions<SpecificSnippetResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["specificSnippet", documentId, chunkIndex],
@@ -502,7 +503,7 @@ export const useSnippetSearch = (
   queryOptions?: Omit<
     UseQueryOptions<SnippetSearchResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["snippetSearch", request],
@@ -518,7 +519,7 @@ export const useRandomSnippets = (
   queryOptions?: Omit<
     UseQueryOptions<RandomSnippetsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["randomSnippets", request],
@@ -532,7 +533,7 @@ export const useSnippetStats = (
   queryOptions?: Omit<
     UseQueryOptions<SnippetStatsResponse, ApiError>,
     "queryKey" | "queryFn"
-  >,
+  >
 ) => {
   return useQuery({
     queryKey: ["snippetStats"],

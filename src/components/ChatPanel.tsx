@@ -1,32 +1,17 @@
 import React, { useState, useRef, useEffect } from "react";
 import {
-  Send,
-  Bot,
-  User,
-  ExternalLink,
-  Copy,
-  RefreshCw,
-  MessageSquare,
-  Loader2,
-  FileText,
-  GitCompare,
-  Layers,
-} from "lucide-react";
-import {
-  useRAGQuery,
-  useConversationRAG,
-  useMultiStepRAG,
-  useSummarizeDocument,
-  useCompareDocuments,
-} from "../hooks/useApi";
-import type {
-  RAGQueryRequest,
-  RAGResponse,
-  RAGSource,
-  ConversationHistory,
-} from "../types/api";
-import { cn } from "../lib/utils";
-import { ChatMessageSkeleton } from "./LoadingSkeletons";
+  PaperAirplaneIcon,
+  UserIcon,
+  ArrowTopRightOnSquareIcon,
+  ClipboardDocumentIcon,
+  ArrowPathIcon,
+  DocumentTextIcon,
+} from "@heroicons/react/24/outline";
+import { ChatBubbleLeftRightIcon } from "@heroicons/react/24/solid";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiService } from "../services/api";
+import type { RAGQueryRequest, RAGResponse, RAGSource } from "../types/api";
+import SnippetView from "./SnippetView";
 
 interface Message {
   id: string;
@@ -35,139 +20,48 @@ interface Message {
   sources?: RAGSource[];
   timestamp: Date;
   isLoading?: boolean;
-  ragType?:
-    | "standard"
-    | "conversation"
-    | "multi-step"
-    | "summarize"
-    | "compare";
-  metadata?: {
-    steps?: number;
-    documentIds?: string[];
-    summaryType?: string;
-  };
 }
 
 interface ChatPanelProps {
-  initialQuery?: string;
-  contextId?: string;
-  contextType?: "folder" | "document";
+  selectedFolderId?: string;
+  selectedDocumentId?: string;
   className?: string;
-  documentIds?: string[]; // For document comparison and summarization
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
-  initialQuery = "",
-  contextId,
-  contextType,
+  selectedFolderId,
+  selectedDocumentId,
   className,
-  documentIds = [],
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
-  const [conversationId, setConversationId] = useState<string | undefined>();
-  const [sessionId, setSessionId] = useState<string>(`session-${Date.now()}`);
   const [isComposing, setIsComposing] = useState(false);
-  const [ragMode, setRagMode] = useState<
-    "standard" | "conversation" | "multi-step" | "summarize" | "compare"
-  >("standard");
-  const [conversationHistory, setConversationHistory] = useState<
-    ConversationHistory[]
-  >([]);
+  const [selectedSnippet, setSelectedSnippet] = useState<{
+    documentId: string;
+    chunkIndex: number;
+  } | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
 
-  const ragMutation = useRAGQuery({
-    onSuccess: (data: RAGResponse, variables: RAGQueryRequest) => {
-      updateLoadingMessage(data.answer, data.sources, "standard");
-      updateConversationHistory(variables.query, data.answer);
-      if (data.conversationId) {
-        setConversationId(data.conversationId);
-      }
+  // RAG Query Mutation
+  const ragMutation = useMutation({
+    mutationFn: (request: RAGQueryRequest) => apiService.ragQuery(request),
+    onSuccess: (data: RAGResponse) => {
+      console.log("RAG Query Success:", data);
+      const resData = data?.data;
+      updateLoadingMessage(resData.answer, resData.sources);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       updateLoadingMessage(
-        `Sorry, I encountered an error: ${error.message}`,
-        undefined,
-        "standard",
+        `Sorry, I encountered an error: ${error.message || "Unknown error occurred"}`,
+        undefined
       );
     },
   });
 
-  const conversationMutation = useConversationRAG({
-    onSuccess: (data: RAGResponse, variables) => {
-      updateLoadingMessage(data.answer, data.sources, "conversation");
-      updateConversationHistory(variables.message, data.answer);
-    },
-    onError: (error) => {
-      updateLoadingMessage(
-        `Sorry, I encountered an error: ${error.message}`,
-        undefined,
-        "conversation",
-      );
-    },
-  });
-
-  const multiStepMutation = useMultiStepRAG({
-    onSuccess: (data: RAGResponse, variables) => {
-      updateLoadingMessage(data.answer, data.sources, "multi-step", {
-        steps: variables.maxSteps,
-      });
-      updateConversationHistory(variables.question, data.answer);
-    },
-    onError: (error) => {
-      updateLoadingMessage(
-        `Sorry, I encountered an error: ${error.message}`,
-        undefined,
-        "multi-step",
-      );
-    },
-  });
-
-  const summarizeMutation = useSummarizeDocument({
-    onSuccess: (data: RAGResponse, variables) => {
-      updateLoadingMessage(data.answer, data.sources, "summarize", {
-        documentIds: [variables.documentId],
-        summaryType: variables.summaryType,
-      });
-    },
-    onError: (error) => {
-      updateLoadingMessage(
-        `Sorry, I encountered an error: ${error.message}`,
-        undefined,
-        "summarize",
-      );
-    },
-  });
-
-  const compareMutation = useCompareDocuments({
-    onSuccess: (data: RAGResponse, variables) => {
-      updateLoadingMessage(data.answer, data.sources, "compare", {
-        documentIds: variables.documentIds,
-      });
-    },
-    onError: (error) => {
-      updateLoadingMessage(
-        `Sorry, I encountered an error: ${error.message}`,
-        undefined,
-        "compare",
-      );
-    },
-  });
-
-  const updateLoadingMessage = (
-    content: string,
-    sources?: RAGSource[],
-    ragType?:
-      | "standard"
-      | "conversation"
-      | "multi-step"
-      | "summarize"
-      | "compare",
-    metadata?: any,
-  ) => {
+  const updateLoadingMessage = (content: string, sources?: RAGSource[]) => {
     setMessages((prev) =>
       prev.map((msg) =>
         msg.isLoading
@@ -176,24 +70,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               content,
               sources,
               isLoading: false,
-              ragType,
-              metadata,
             }
-          : msg,
-      ),
+          : msg
+      )
     );
   };
-
-  const updateConversationHistory = (question: string, answer: string) => {
-    setConversationHistory((prev) => [...prev, { question, answer }]);
-  };
-
-  // Handle initial query
-  useEffect(() => {
-    if (initialQuery && messages.length === 0) {
-      handleSendMessage(initialQuery);
-    }
-  }, [initialQuery]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -205,23 +86,14 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     inputRef.current?.focus();
   }, []);
 
-  const handleSendMessage = async (content: string, mode?: typeof ragMode) => {
-    const currentMode = mode || ragMode;
-    const isAnyMutationPending =
-      ragMutation.isPending ||
-      conversationMutation.isPending ||
-      multiStepMutation.isPending ||
-      summarizeMutation.isPending ||
-      compareMutation.isPending;
-
-    if (!content.trim() || isAnyMutationPending) return;
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim() || ragMutation.isPending) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       type: "user",
       content: content.trim(),
       timestamp: new Date(),
-      ragType: currentMode,
     };
 
     const loadingMessage: Message = {
@@ -230,73 +102,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       content: "",
       timestamp: new Date(),
       isLoading: true,
-      ragType: currentMode,
     };
 
     setMessages((prev) => [...prev, userMessage, loadingMessage]);
     setInputValue("");
 
-    // Execute based on RAG mode
-    switch (currentMode) {
-      case "conversation":
-        conversationMutation.mutate({
-          sessionId,
-          message: content.trim(),
-          conversationHistory,
-        });
-        break;
+    // Create RAG request
+    const ragRequest: RAGQueryRequest = {
+      question: content.trim(),
+      folderId: selectedFolderId,
+      documentId: selectedDocumentId,
+      maxResults: 5,
+    };
 
-      case "multi-step":
-        multiStepMutation.mutate({
-          question: content.trim(),
-          maxSteps: 3,
-        });
-        break;
-
-      case "summarize":
-        if (contextId && contextType === "document") {
-          summarizeMutation.mutate({
-            documentId: contextId,
-            summaryType: "detailed",
-          });
-        } else {
-          updateLoadingMessage(
-            "Please select a document to summarize.",
-            undefined,
-            "summarize",
-          );
-        }
-        break;
-
-      case "compare":
-        if (documentIds.length >= 2) {
-          compareMutation.mutate({
-            documentIds,
-            comparisonAspect: "content",
-            focusAreas: ["similarities", "differences"],
-          });
-        } else {
-          updateLoadingMessage(
-            "Please select at least 2 documents to compare.",
-            undefined,
-            "compare",
-          );
-        }
-        break;
-
-      default:
-        // Standard RAG query
-        const ragRequest: RAGQueryRequest = {
-          question: content.trim(),
-          folderId: contextType === "folder" ? contextId : undefined,
-          contextType,
-          maxResults: 5,
-          conversationHistory:
-            conversationHistory.length > 0 ? conversationHistory : undefined,
-        };
-        ragMutation.mutate(ragRequest);
-        break;
-    }
+    ragMutation.mutate(ragRequest);
   };
 
   const handleInputSubmit = (e: React.FormEvent) => {
@@ -340,7 +159,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   const handleSourceClick = (source: RAGSource) => {
-    window.open(source.driveUrl, "_blank", "noopener,noreferrer");
+    // Create Google Drive URL from document ID
+    const driveUrl = `https://drive.google.com/file/d/${source.documentId}`;
+    window.open(driveUrl, "_blank", "noopener,noreferrer");
   };
 
   const formatTimestamp = (timestamp: Date): string => {
@@ -352,197 +173,94 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const clearConversation = () => {
     setMessages([]);
-    setConversationId(undefined);
-    setSessionId(`session-${Date.now()}`);
-    setConversationHistory([]);
     inputRef.current?.focus();
   };
 
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case "summarize":
-        setRagMode("summarize");
-        if (contextId && contextType === "document") {
-          handleSendMessage(
-            "Please provide a detailed summary of this document.",
-            "summarize",
-          );
-        } else {
-          setInputValue("Please select a document to summarize.");
-        }
-        break;
-      case "compare":
-        setRagMode("compare");
-        if (documentIds.length >= 2) {
-          handleSendMessage("Please compare these documents.", "compare");
-        } else {
-          setInputValue("Please select at least 2 documents to compare.");
-        }
-        break;
-      case "multi-step":
-        setRagMode("multi-step");
-        setInputValue(
-          "Ask a complex question that requires multi-step reasoning...",
-        );
-        break;
-    }
-  };
-
   return (
-    <div className={cn("flex flex-col h-full bg-white", className)}>
+    <div className={`flex flex-col h-full bg-white ${className || ""}`}>
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <div className="flex items-center">
-          <MessageSquare className="h-5 w-5 text-blue-600 mr-2" />
-          <h2 className="text-lg font-semibold text-gray-900">AI Assistant</h2>
-          {contextType && contextId && (
-            <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-              {contextType === "folder" ? "Folder Context" : "Document Context"}
-            </span>
-          )}
-          {documentIds.length > 0 && (
-            <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
-              {documentIds.length} docs selected
-            </span>
-          )}
-        </div>
+      <div className="flex-shrink-0 border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full">
+              <ChatBubbleLeftRightIcon className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">
+                AI Assistant
+              </h2>
+              <p className="text-sm text-gray-500">
+                {selectedFolderId
+                  ? `Searching in selected folder`
+                  : selectedDocumentId
+                    ? `Document context`
+                    : "Ask questions about your documents"}
+              </p>
+            </div>
+          </div>
 
-        <div className="flex items-center space-x-2">
-          {/* RAG Mode Selector */}
-          <select
-            value={ragMode}
-            onChange={(e) => setRagMode(e.target.value as typeof ragMode)}
-            className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500"
+          <button
+            onClick={clearConversation}
+            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            title="Clear conversation"
           >
-            <option value="standard">Standard</option>
-            <option value="conversation">Conversation</option>
-            <option value="multi-step">Multi-step</option>
-            <option value="summarize">Summarize</option>
-            <option value="compare">Compare</option>
-          </select>
-
-          {messages.length > 0 && (
-            <button
-              onClick={clearConversation}
-              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              Clear Chat
-            </button>
-          )}
+            <ArrowPathIcon className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      {messages.length === 0 && (
-        <div className="p-4 border-b border-gray-200 bg-gray-50">
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => handleQuickAction("summarize")}
-              disabled={!contextId || contextType !== "document"}
-              className="flex items-center px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <FileText className="h-3 w-3 mr-1" />
-              Summarize Document
-            </button>
-            <button
-              onClick={() => handleQuickAction("compare")}
-              disabled={documentIds.length < 2}
-              className="flex items-center px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <GitCompare className="h-3 w-3 mr-1" />
-              Compare Documents
-            </button>
-            <button
-              onClick={() => handleQuickAction("multi-step")}
-              className="flex items-center px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-            >
-              <Layers className="h-3 w-3 mr-1" />
-              Complex Analysis
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Messages */}
-      <div
-        ref={chatContainerRef}
-        className="flex-1 overflow-y-auto p-4 space-y-4"
-      >
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="text-center py-12">
-            <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <ChatBubbleLeftRightIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               Ask me anything
             </h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              I can help you find information, summarize documents, answer
-              questions, compare documents, and provide multi-step analysis.
-              {contextType && " I'll focus on the selected context."}
-              {documentIds.length > 0 &&
-                ` I can work with your ${documentIds.length} selected documents.`}
+              I can help you find information in your documents and answer
+              questions.
+              {selectedFolderId && " I'll search within the selected folder."}
+              {selectedDocumentId && " I'll focus on the selected document."}
             </p>
           </div>
         ) : (
           messages.map((message) => (
             <div
               key={message.id}
-              className={cn(
-                "flex items-start space-x-3",
-                message.type === "user" ? "justify-end" : "justify-start",
-              )}
+              className={`flex items-start space-x-3 ${
+                message.type === "user" ? "justify-end" : "justify-start"
+              }`}
             >
               {message.type === "assistant" && (
                 <div className="flex-shrink-0 w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                   {message.isLoading ? (
-                    <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
                   ) : (
-                    <Bot className="h-4 w-4 text-blue-600" />
+                    <ChatBubbleLeftRightIcon className="h-4 w-4 text-blue-600" />
                   )}
                 </div>
               )}
 
               <div
-                className={cn(
-                  "max-w-3xl",
-                  message.type === "user" ? "order-1" : "order-2",
-                )}
+                className={`max-w-3xl ${
+                  message.type === "user" ? "order-1" : "order-2"
+                }`}
               >
                 <div
-                  className={cn(
-                    "rounded-lg px-4 py-3",
+                  className={`rounded-lg px-4 py-3 ${
                     message.type === "user"
                       ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-900",
-                  )}
+                      : "bg-gray-100 text-gray-900"
+                  }`}
                 >
                   {message.isLoading ? (
-                    <ChatMessageSkeleton />
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                    </div>
                   ) : (
                     <div className="prose prose-sm max-w-none">
-                      {message.ragType && message.ragType !== "standard" && (
-                        <div className="mb-2 flex items-center text-xs text-gray-500">
-                          {message.ragType === "conversation" && (
-                            <MessageSquare className="h-3 w-3 mr-1" />
-                          )}
-                          {message.ragType === "multi-step" && (
-                            <Layers className="h-3 w-3 mr-1" />
-                          )}
-                          {message.ragType === "summarize" && (
-                            <FileText className="h-3 w-3 mr-1" />
-                          )}
-                          {message.ragType === "compare" && (
-                            <GitCompare className="h-3 w-3 mr-1" />
-                          )}
-                          <span className="capitalize">
-                            {message.ragType} Response
-                          </span>
-                          {message.metadata?.steps && (
-                            <span className="ml-1">
-                              ({message.metadata.steps} steps)
-                            </span>
-                          )}
-                        </div>
-                      )}
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                   )}
@@ -551,71 +269,113 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                 {/* Sources */}
                 {message.sources && message.sources.length > 0 && (
                   <div className="mt-3 space-y-2">
-                    <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">
-                      Sources
-                    </div>
-                    <div className="space-y-2">
-                      {message.sources.map((source, index) => (
-                        <div
-                          key={index}
-                          onClick={() => handleSourceClick(source)}
-                          className="bg-white border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all"
-                        >
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-medium text-gray-900 truncate">
-                                {source.title}
-                              </h4>
-                              <p className="text-xs text-gray-600 mt-1 line-clamp-2">
-                                {source.snippet}
-                              </p>
-                              <div className="flex items-center mt-2 text-xs text-gray-500">
-                                <span>
-                                  Relevance:{" "}
-                                  {Math.round(source.relevanceScore * 100)}%
-                                </span>
-                              </div>
+                    <h4 className="text-sm font-medium text-gray-700">
+                      Sources:
+                    </h4>
+                    {message.sources.map((source, index) => (
+                      <div
+                        key={index}
+                        className="bg-white border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                        onClick={() => {
+                          if (
+                            source.documentId &&
+                            source.chunkIndex !== undefined
+                          ) {
+                            setSelectedSnippet({
+                              documentId: source.documentId,
+                              chunkIndex: source.chunkIndex,
+                            });
+                          }
+                        }}
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center space-x-2">
+                              <DocumentTextIcon className="w-4 h-4 text-gray-500" />
+                              <h5 className="text-sm font-medium text-gray-900 truncate">
+                                {source.fileName || "Untitled Document"}
+                              </h5>
                             </div>
-                            <ExternalLink className="h-4 w-4 text-gray-400 ml-2 flex-shrink-0" />
+                            <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                              {source.snippet}
+                            </p>
+                            <div className="flex items-center mt-2 space-x-2">
+                              <span className="text-xs text-gray-400">
+                                Relevance:{" "}
+                                {Math.round(source.relevanceScore * 100)}%
+                              </span>
+                            </div>
+                            <p className="text-xs text-blue-600 mt-1">
+                              Click to view full snippet
+                            </p>
+                          </div>
+                          <div className="flex items-center space-x-1 ml-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (
+                                  source.documentId &&
+                                  source.chunkIndex !== undefined
+                                ) {
+                                  setSelectedSnippet({
+                                    documentId: source.documentId,
+                                    chunkIndex: source.chunkIndex,
+                                  });
+                                }
+                              }}
+                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="View snippet"
+                            >
+                              <DocumentTextIcon className="w-4 h-4" />
+                            </button>
+                            <a
+                              href={`https://drive.google.com/file/d/${source.documentId}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                              className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                              title="Open in Google Drive"
+                            >
+                              <ArrowTopRightOnSquareIcon className="w-4 h-4" />
+                            </a>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Message Actions */}
-                {!message.isLoading && (
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-xs text-gray-500">
-                      {formatTimestamp(message.timestamp)}
-                    </span>
+                {!message.isLoading && message.type === "assistant" && (
+                  <div className="flex items-center space-x-2 mt-3">
+                    <button
+                      onClick={() => handleCopyMessage(message.content)}
+                      className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      <ClipboardDocumentIcon className="w-3 h-3" />
+                      <span>Copy</span>
+                    </button>
+                    <button
+                      onClick={handleRetryLastMessage}
+                      className="flex items-center space-x-1 px-2 py-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                    >
+                      <ArrowPathIcon className="w-3 h-3" />
+                      <span>Retry</span>
+                    </button>
+                  </div>
+                )}
 
-                    {message.type === "assistant" && (
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleCopyMessage(message.content)}
-                          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                          title="Copy message"
-                        >
-                          <Copy className="h-3 w-3" />
-                        </button>
-                        <button
-                          onClick={handleRetryLastMessage}
-                          className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
-                          title="Retry"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                        </button>
-                      </div>
-                    )}
+                {/* Timestamp */}
+                {!message.isLoading && (
+                  <div className="text-xs text-gray-500 mt-2">
+                    {formatTimestamp(message.timestamp)}
                   </div>
                 )}
               </div>
 
               {message.type === "user" && (
                 <div className="flex-shrink-0 w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center order-2">
-                  <User className="h-4 w-4 text-white" />
+                  <UserIcon className="h-4 w-4 text-white" />
                 </div>
               )}
             </div>
@@ -624,10 +384,10 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t border-gray-200 p-4">
-        <form onSubmit={handleInputSubmit} className="flex items-end space-x-3">
-          <div className="flex-1">
+      {/* Input Area */}
+      <div className="flex-shrink-0 border-t border-gray-200 p-4">
+        <form onSubmit={handleInputSubmit} className="flex space-x-2">
+          <div className="flex-1 relative">
             <textarea
               ref={inputRef}
               value={inputValue}
@@ -635,47 +395,39 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               onKeyDown={handleKeyDown}
               onCompositionStart={() => setIsComposing(true)}
               onCompositionEnd={() => setIsComposing(false)}
-              placeholder="Ask a question or request a summary..."
+              placeholder="Ask a question about your documents..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
               rows={1}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-              style={{ minHeight: "48px", maxHeight: "120px" }}
-              disabled={
-                ragMutation.isPending ||
-                conversationMutation.isPending ||
-                multiStepMutation.isPending ||
-                summarizeMutation.isPending ||
-                compareMutation.isPending
-              }
+              style={{
+                minHeight: "48px",
+                maxHeight: "120px",
+                height: "auto",
+              }}
             />
           </div>
           <button
             type="submit"
-            disabled={
-              !inputValue.trim() ||
-              ragMutation.isPending ||
-              conversationMutation.isPending ||
-              multiStepMutation.isPending ||
-              summarizeMutation.isPending ||
-              compareMutation.isPending
-            }
-            className="flex-shrink-0 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            disabled={!inputValue.trim() || ragMutation.isPending}
+            className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {ragMutation.isPending ||
-            conversationMutation.isPending ||
-            multiStepMutation.isPending ||
-            summarizeMutation.isPending ||
-            compareMutation.isPending ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
+            {ragMutation.isPending ? (
+              <div className="w-5 h-5 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
             ) : (
-              <Send className="h-5 w-5" />
+              <PaperAirplaneIcon className="w-5 h-5" />
             )}
           </button>
         </form>
-
-        <div className="mt-2 text-xs text-gray-500">
-          Press Enter to send, Shift+Enter for new line
-        </div>
       </div>
+
+      {/* Snippet View Modal */}
+      {selectedSnippet && (
+        <SnippetView
+          documentId={selectedSnippet.documentId}
+          chunkIndex={selectedSnippet.chunkIndex}
+          isOpen={!!selectedSnippet}
+          onClose={() => setSelectedSnippet(null)}
+        />
+      )}
     </div>
   );
 };

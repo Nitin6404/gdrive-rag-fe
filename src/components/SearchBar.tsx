@@ -1,85 +1,42 @@
 import React, { useState, useEffect, useRef } from "react";
-import {
-  Search,
-  MessageSquare,
-  ChevronDown,
-  X,
-  Loader2,
-  Sparkles,
-} from "lucide-react";
-import {
-  useAutocomplete,
-  useSearchSuggestions,
-  useFolders,
-} from "../hooks/useApi";
-import { cn } from "../lib/utils";
-import { AutocompleteSkeleton } from "./LoadingSkeletons";
-import { ErrorDisplay } from "./ErrorBoundary";
+import { MagnifyingGlassIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { useQuery } from "@tanstack/react-query";
+import { apiService } from "../services/api";
 
 interface SearchBarProps {
-  onSearch: (
-    query: string,
-    context?: { type: "folder" | "document"; id: string },
-  ) => void;
-  onSemanticSearch: (
-    query: string,
-    context?: { type: "folder" | "document"; id: string },
-  ) => void;
-  onRAGQuery: (
-    query: string,
-    context?: { type: "folder" | "document"; id: string },
-  ) => void;
+  onSearch: (query: string, folderId?: string, documentId?: string) => void;
   placeholder?: string;
   className?: string;
-}
-
-interface ContextOption {
-  id: string;
-  name: string;
-  type: "folder" | "document";
+  selectedFolderId?: string;
+  selectedDocumentId?: string;
 }
 
 const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
-  onSemanticSearch,
-  onRAGQuery,
-  placeholder = "Search documents or ask a question...",
+  placeholder = "Search documents...",
   className,
+  selectedFolderId,
+  selectedDocumentId,
 }) => {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [selectedContext, setSelectedContext] = useState<ContextOption | null>(
-    null,
-  );
-  const [showContextDropdown, setShowContextDropdown] = useState(false);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
-  const [searchMode, setSearchMode] = useState<"search" | "semantic" | "rag">(
-    "search",
-  );
   const [isComposing, setIsComposing] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
-  // Fetch folders from API
-  const { data: foldersData, isLoading: isLoadingFolders } = useFolders(
-    undefined,
-    20,
-  );
-
-  const contextOptions: ContextOption[] = [
-    { id: "all", name: "All Documents", type: "folder" },
-    ...(foldersData?.folders?.map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      type: "folder" as const,
-    })) || []),
-  ];
+  // Fetch search suggestions
+  const { data: suggestionsData, isLoading: isLoadingSuggestions } = useQuery({
+    queryKey: ["search-suggestions", debouncedQuery],
+    queryFn: () => apiService.getSearchSuggestions(debouncedQuery, 5),
+    enabled: !!debouncedQuery && debouncedQuery.length > 1,
+    staleTime: 30000, // 30 seconds
+    select: (data) => data.data,
+  });
 
   // Debounce the query input
   useEffect(() => {
-    if (isLoadingFolders) return;
     const timer = setTimeout(() => {
       if (!isComposing) {
         setDebouncedQuery(query);
@@ -89,41 +46,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
     return () => clearTimeout(timer);
   }, [query, isComposing]);
 
-  // Fetch autocomplete suggestions (legacy)
-  const {
-    data: autocompleteSuggestions,
-    isLoading: isLoadingAutocomplete,
-    error: autocompleteError,
-  } = useAutocomplete(debouncedQuery, {
-    enabled:
-      !!debouncedQuery && debouncedQuery.length > 2 && searchMode === "search",
-  });
-
-  // Fetch enhanced search suggestions
-  const {
-    data: searchSuggestionsData,
-    isLoading: isLoadingSearchSuggestions,
-    error: searchSuggestionsError,
-  } = useSearchSuggestions(debouncedQuery, 5, {
-    enabled:
-      !!debouncedQuery &&
-      debouncedQuery.length > 1 &&
-      (searchMode === "semantic" || searchMode === "rag"),
-  });
-
-  // Combine suggestions based on search mode
-  const suggestions =
-    searchMode === "search"
-      ? autocompleteSuggestions
-      : searchSuggestionsData?.suggestions || [];
-
-  const isLoadingSuggestions =
-    searchMode === "search"
-      ? isLoadingAutocomplete
-      : isLoadingSearchSuggestions;
-
-  const suggestionsError =
-    searchMode === "search" ? autocompleteError : searchSuggestionsError;
+  const suggestions = suggestionsData?.suggestions || [];
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,19 +59,7 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (query.trim()) {
-      const context =
-        selectedContext && selectedContext.id !== "all"
-          ? { type: selectedContext.type, id: selectedContext.id }
-          : undefined;
-
-      if (searchMode === "rag") {
-        onRAGQuery(query.trim(), context);
-      } else if (searchMode === "semantic") {
-        onSemanticSearch(query.trim(), context);
-      } else {
-        onSearch(query.trim(), context);
-      }
-
+      onSearch(query.trim(), selectedFolderId, selectedDocumentId);
       setShowAutocomplete(false);
     }
   };
@@ -160,12 +71,6 @@ const SearchBar: React.FC<SearchBarProps> = ({
     inputRef.current?.focus();
   };
 
-  // Handle context selection
-  const handleContextSelect = (context: ContextOption) => {
-    setSelectedContext(context);
-    setShowContextDropdown(false);
-  };
-
   // Clear search
   const handleClear = () => {
     setQuery("");
@@ -174,15 +79,9 @@ const SearchBar: React.FC<SearchBarProps> = ({
     inputRef.current?.focus();
   };
 
-  // Close dropdowns when clicking outside
+  // Close autocomplete when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target as Node)
-      ) {
-        setShowContextDropdown(false);
-      }
       if (
         autocompleteRef.current &&
         !autocompleteRef.current.contains(event.target as Node)
@@ -196,81 +95,13 @@ const SearchBar: React.FC<SearchBarProps> = ({
   }, []);
 
   return (
-    <div className={cn("relative w-full max-w-4xl mx-auto", className)}>
-      {/* Search Mode Toggle */}
-      <div className="flex mb-4 bg-gray-100 rounded-lg p-1">
-        <button
-          type="button"
-          onClick={() => setSearchMode("search")}
-          className={cn(
-            "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors",
-            searchMode === "search"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-600 hover:text-gray-900",
-          )}
-        >
-          <Search className="inline h-4 w-4 mr-1" />
-          Keyword
-        </button>
-        <button
-          type="button"
-          onClick={() => setSearchMode("semantic")}
-          className={cn(
-            "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors",
-            searchMode === "semantic"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-600 hover:text-gray-900",
-          )}
-        >
-          <Sparkles className="inline h-4 w-4 mr-1" />
-          Semantic
-        </button>
-        <button
-          type="button"
-          onClick={() => setSearchMode("rag")}
-          className={cn(
-            "flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors",
-            searchMode === "rag"
-              ? "bg-white text-gray-900 shadow-sm"
-              : "text-gray-600 hover:text-gray-900",
-          )}
-        >
-          <MessageSquare className="inline h-4 w-4 mr-1" />
-          Ask AI
-        </button>
-      </div>
-
+    <div className={`relative w-full ${className || ""}`}>
       {/* Main Search Bar */}
       <form onSubmit={handleSubmit} className="relative">
         <div className="flex items-center bg-white border border-gray-300 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500">
-          {/* Context Selector */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => setShowContextDropdown(!showContextDropdown)}
-              className="flex items-center px-4 py-3 text-sm text-gray-600 hover:text-gray-900 border-r border-gray-300"
-            >
-              <span className="truncate max-w-32">
-                {selectedContext?.name || "All Documents"}
-              </span>
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </button>
-
-            {/* Context Dropdown */}
-            {showContextDropdown && (
-              <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-gray-300 rounded-md shadow-lg z-50">
-                {contextOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => handleContextSelect(option)}
-                    className="w-full px-4 py-2 text-left text-sm hover:bg-gray-50 first:rounded-t-md last:rounded-b-md"
-                  >
-                    {option.name}
-                  </button>
-                ))}
-              </div>
-            )}
+          {/* Search Icon */}
+          <div className="pl-4">
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
           </div>
 
           {/* Search Input */}
@@ -292,9 +123,9 @@ const SearchBar: React.FC<SearchBarProps> = ({
               <button
                 type="button"
                 onClick={handleClear}
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 rounded"
               >
-                <X className="h-4 w-4" />
+                <XMarkIcon className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -302,25 +133,10 @@ const SearchBar: React.FC<SearchBarProps> = ({
           {/* Search Button */}
           <button
             type="submit"
-            disabled={!query.trim() || isLoadingSuggestions}
-            className={cn(
-              "px-6 py-3 rounded-r-lg transition-colors inline-flex items-center justify-center",
-              searchMode === "search"
-                ? "bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300"
-                : searchMode === "semantic"
-                  ? "bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300"
-                  : "bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300",
-            )}
+            disabled={!query.trim()}
+            className="px-6 py-3 bg-blue-600 text-white rounded-r-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoadingSuggestions ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : searchMode === "search" ? (
-              <Search className="h-5 w-5" />
-            ) : searchMode === "semantic" ? (
-              <Sparkles className="h-5 w-5" />
-            ) : (
-              <MessageSquare className="h-5 w-5" />
-            )}
+            <MagnifyingGlassIcon className="h-5 w-5" />
           </button>
         </div>
 
@@ -328,14 +144,11 @@ const SearchBar: React.FC<SearchBarProps> = ({
         {showAutocomplete && debouncedQuery && (
           <div className="relative">
             {isLoadingSuggestions ? (
-              <AutocompleteSkeleton />
-            ) : suggestionsError ? (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-50">
-                <div className="p-2">
-                  <ErrorDisplay
-                    error={suggestionsError}
-                    className="border-0 bg-transparent p-2"
-                  />
+                <div className="p-4 text-center text-gray-500">
+                  <div className="animate-pulse flex space-x-2">
+                    <div className="h-4 bg-gray-200 rounded flex-1"></div>
+                  </div>
                 </div>
               </div>
             ) : suggestions && suggestions.length > 0 ? (
@@ -349,15 +162,15 @@ const SearchBar: React.FC<SearchBarProps> = ({
                       key={index}
                       type="button"
                       onClick={() => handleAutocompleteSelect(suggestion)}
-                      className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 first:rounded-t-md last:rounded-b-md"
+                      className="w-full px-4 py-3 text-left text-sm hover:bg-gray-50 flex items-center"
                     >
-                      <Search className="inline h-4 w-4 mr-2 text-gray-400" />
+                      <MagnifyingGlassIcon className="h-4 w-4 mr-2 text-gray-400" />
                       {suggestion}
                     </button>
                   ))}
                 </div>
               </div>
-            ) : debouncedQuery.length > 2 ? (
+            ) : debouncedQuery.length > 1 ? (
               <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-50">
                 <div className="p-4 text-center text-gray-500">
                   No suggestions found
