@@ -6,7 +6,7 @@ import ResultsList from './components/ResultsList';
 import SnippetPreview from './components/SnippetPreview';
 import ChatPanel from './components/ChatPanel';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { useSearch } from './hooks/useApi';
+import { useSearch, useSemanticSearch } from './hooks/useApi';
 import { type SearchResult } from './types/api';
 import { Search, MessageSquare, FileText } from 'lucide-react';
 
@@ -42,7 +42,7 @@ function SearchPage() {
   const [selectedContext, setSelectedContext] = useState<{ type: 'folder' | 'document'; id: string } | undefined>();
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [searchMode, setSearchMode] = useState<'search' | 'rag'>('search');
+  const [searchMode, setSearchMode] = useState<'search' | 'semantic' | 'rag'>('search');
 
   const {
     data: searchData,
@@ -60,10 +60,34 @@ function SearchPage() {
     }
   );
 
+  const {
+    data: semanticSearchData,
+    isLoading: isSemanticSearchLoading,
+    error: semanticSearchError,
+    refetch: refetchSemanticSearch,
+  } = useSemanticSearch(
+    {
+      query: searchQuery,
+      limit: 20,
+      threshold: 0.7,
+      documentIds: selectedContext?.type === 'document' ? [selectedContext.id] : undefined,
+      fileTypes: undefined,
+    },
+    {
+      enabled: !!searchQuery && searchMode === 'semantic',
+    }
+  );
+
   const handleSearch = (query: string, context?: { type: 'folder' | 'document'; id: string }) => {
     setSearchQuery(query);
     setSelectedContext(context);
     setSearchMode('search');
+  };
+
+  const handleSemanticSearch = (query: string, context?: { type: 'folder' | 'document'; id: string }) => {
+    setSearchQuery(query);
+    setSelectedContext(context);
+    setSearchMode('semantic');
   };
 
   const handleRAGQuery = (query: string, context?: { type: 'folder' | 'document'; id: string }) => {
@@ -118,6 +142,7 @@ function SearchPage() {
             <div className="mb-6 sm:mb-8">
               <SearchBar
                 onSearch={handleSearch}
+                onSemanticSearch={handleSemanticSearch}
                 onRAGQuery={handleRAGQuery}
                 placeholder="Search documents or ask AI a question..."
               />
@@ -131,6 +156,20 @@ function SearchPage() {
                 hasMore={searchData?.hasMore || false}
                 onResultClick={handleResultClick}
                 searchQuery={searchQuery}
+                showStats={true}
+                showSimilar={true}
+                selectedDocumentId={selectedResult?.id}
+              />
+            ) : searchMode === 'semantic' ? (
+              <ResultsList
+                results={semanticSearchData?.results || []}
+                isLoading={isSemanticSearchLoading}
+                hasMore={semanticSearchData?.hasMore || false}
+                onResultClick={handleResultClick}
+                searchQuery={searchQuery}
+                showStats={true}
+                showSimilar={true}
+                selectedDocumentId={selectedResult?.id}
               />
             ) : (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-[500px] sm:h-[600px]">
@@ -143,14 +182,14 @@ function SearchPage() {
             )}
 
             {/* Error State */}
-            {searchError && (
+            {(searchError || semanticSearchError) && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4 mt-4">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                   <div className="text-red-600 text-sm flex-1">
-                    <strong>Error:</strong> {searchError.message}
+                    <strong>Error:</strong> {(searchError || semanticSearchError)?.message}
                   </div>
                   <button
-                    onClick={() => refetchSearch()}
+                    onClick={() => searchMode === 'search' ? refetchSearch() : refetchSemanticSearch()}
                     className="text-red-600 hover:text-red-700 text-sm underline self-start sm:self-auto"
                   >
                     Try again
@@ -184,10 +223,10 @@ function SearchPage() {
             <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 sm:p-6 mt-4 sm:mt-6">
               <h4 className="font-medium text-blue-900 mb-3 text-sm sm:text-base">Search Tips</h4>
               <ul className="text-xs sm:text-sm text-blue-800 space-y-2">
-                <li>• Use quotes for exact phrases</li>
-                <li>• Try asking questions in natural language</li>
+                <li>• <strong>Keyword:</strong> Use quotes for exact phrases</li>
+                <li>• <strong>Semantic:</strong> Search by meaning and context</li>
+                <li>• <strong>AI Chat:</strong> Ask questions in natural language</li>
                 <li>• Select a folder to narrow your search</li>
-                <li>• Use the AI chat for summaries and analysis</li>
               </ul>
             </div>
           </div>

@@ -36,7 +36,7 @@ import type {
   RandomSnippetsResponse,
   SnippetStatsResponse,
   ApiResponse,
-} from '../types/api';
+} from '../types';
 
 class ApiService {
   private api: AxiosInstance;
@@ -105,7 +105,7 @@ class ApiService {
     limit?: number;
     cursor?: string;
   }): Promise<SearchResponse> {
-    const response = await this.api.post('/api/search', {
+    const response = await this.api.post('/search/', {
       query,
       ...options,
     });
@@ -113,7 +113,7 @@ class ApiService {
   }
 
   async getAutocomplete(query: string, limit: number = 5): Promise<AutocompleteResponse> {
-    const response = await this.api.post('/api/search', {
+    const response = await this.api.post('/search/suggestions', {
       query,
       limit,
       autocomplete: true,
@@ -123,13 +123,13 @@ class ApiService {
 
   // RAG endpoints
   async ragQuery(request: RAGQueryRequest): Promise<RAGResponse> {
-    const response = await this.api.post('/api/rag/query', request);
+    const response = await this.api.post('/rag/query', request);
     return response.data;
   }
 
   // Document endpoints
   async getDocument(documentId: string): Promise<DocumentDetails> {
-    const response = await this.api.get(`/api/documents/${documentId}`);
+    const response = await this.api.get(`/documents/${documentId}`);
     return response.data;
   }
 
@@ -143,7 +143,7 @@ class ApiService {
       formData.append('metadata', JSON.stringify(request.metadata));
     }
 
-    const response = await this.api.post('/api/documents', formData, {
+    const response = await this.api.post('/documents', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -153,7 +153,142 @@ class ApiService {
 
   // Snippet endpoints
   async getSnippets(request: SnippetRequest): Promise<SnippetResponse> {
-    const response = await this.api.post('/api/snippets', request);
+    const response = await this.api.post('/snippets', request);
+    return response.data;
+  }
+
+  // Health Check
+  async getHealth(): Promise<HealthResponse> {
+    const response = await this.api.get('/health');
+    return response.data;
+  }
+
+  // Enhanced Search endpoints
+  async semanticSearch(request: SemanticSearchRequest): Promise<SearchResponse> {
+    const response = await this.api.post('/search/semantic', request);
+    return response.data;
+  }
+
+  async getSearchSuggestions(query: string, limit: number = 5): Promise<SearchSuggestionsResponse> {
+    const response = await this.api.get(`/search/suggestions?q=${encodeURIComponent(query)}&limit=${limit}`);
+    return response.data;
+  }
+
+  async getSimilarDocuments(documentId: string, limit: number = 10, threshold: number = 0.7): Promise<SimilarDocumentsResponse> {
+    const response = await this.api.get(`/search/similar/${documentId}?limit=${limit}&threshold=${threshold}`);
+    return response.data;
+  }
+
+  async getSearchStats(): Promise<SearchStatsResponse> {
+    const response = await this.api.get('/search/stats');
+    return response.data;
+  }
+
+  // Enhanced Document Management
+  async getDocuments(request?: DocumentListRequest): Promise<DocumentListResponse> {
+    const params = new URLSearchParams();
+    if (request?.folderId) params.append('folderId', request.folderId);
+    if (request?.fileType) params.append('fileType', request.fileType);
+    if (request?.limit) params.append('limit', request.limit.toString());
+    if (request?.pageToken) params.append('pageToken', request.pageToken);
+    
+    const response = await this.api.get(`/documents?${params.toString()}`);
+    return response.data;
+  }
+
+  async indexDocument(documentId: string, request?: IndexDocumentRequest): Promise<ApiResponse<any>> {
+    const response = await this.api.post(`/documents/${documentId}/index`, request || {});
+    return response.data;
+  }
+
+  async batchIndexDocuments(request: BatchIndexRequest): Promise<ApiResponse<any>> {
+    const response = await this.api.post('/documents/batch/index', request);
+    return response.data;
+  }
+
+  async removeDocumentFromIndex(documentId: string): Promise<ApiResponse<any>> {
+    const response = await this.api.delete(`/documents/${documentId}/index`);
+    return response.data;
+  }
+
+  async getIndexedDocuments(limit?: number, offset?: number, fileType?: string): Promise<IndexedDocumentsResponse> {
+    const params = new URLSearchParams();
+    if (limit) params.append('limit', limit.toString());
+    if (offset) params.append('offset', offset.toString());
+    if (fileType) params.append('fileType', fileType);
+    
+    const response = await this.api.get(`/documents/indexed?${params.toString()}`);
+    return response.data;
+  }
+
+  async getFolders(parentId?: string, limit?: number): Promise<FoldersResponse> {
+    const params = new URLSearchParams();
+    if (parentId) params.append('parentId', parentId);
+    if (limit) params.append('limit', limit.toString());
+    
+    const response = await this.api.get(`/documents/folders?${params.toString()}`);
+    return response.data;
+  }
+
+  // Enhanced RAG endpoints
+  async multiStepRAG(request: MultiStepRAGRequest): Promise<RAGResponse> {
+    const response = await this.api.post('/rag/multi-step', request);
+    return response.data;
+  }
+
+  async conversationRAG(request: ConversationRAGRequest): Promise<RAGResponse> {
+    const response = await this.api.post('/rag/conversation', request);
+    return response.data;
+  }
+
+  async summarizeDocument(request: SummarizeRequest): Promise<RAGResponse> {
+    const response = await this.api.post('/rag/summarize', request);
+    return response.data;
+  }
+
+  async compareDocuments(request: CompareDocumentsRequest): Promise<RAGResponse> {
+    const response = await this.api.post('/rag/compare', request);
+    return response.data;
+  }
+
+  async getRAGConfig(): Promise<RAGConfigResponse> {
+    const response = await this.api.get('/rag/config');
+    return response.data;
+  }
+
+  // Enhanced Snippets endpoints
+  async getDocumentSnippets(documentId: string, request?: DocumentSnippetsRequest): Promise<DocumentSnippetsResponse> {
+    const params = new URLSearchParams();
+    if (request?.limit) params.append('limit', request.limit.toString());
+    if (request?.offset) params.append('offset', request.offset.toString());
+    if (request?.includeText !== undefined) params.append('includeText', request.includeText.toString());
+    
+    const response = await this.api.get(`/snippets/${documentId}?${params.toString()}`);
+    return response.data;
+  }
+
+  async getSpecificSnippet(documentId: string, chunkIndex: number): Promise<SpecificSnippetResponse> {
+    const response = await this.api.get(`/snippets/${documentId}/${chunkIndex}`);
+    return response.data;
+  }
+
+  async searchSnippets(request: SnippetSearchRequest): Promise<SnippetSearchResponse> {
+    const response = await this.api.post('/snippets/search', request);
+    return response.data;
+  }
+
+  async getRandomSnippets(request?: RandomSnippetsRequest): Promise<RandomSnippetsResponse> {
+    const params = new URLSearchParams();
+    if (request?.count) params.append('count', request.count.toString());
+    if (request?.fileTypes) request.fileTypes.forEach(type => params.append('fileTypes', type));
+    if (request?.minLength) params.append('minLength', request.minLength.toString());
+    
+    const response = await this.api.get(`/snippets/random/sample?${params.toString()}`);
+    return response.data;
+  }
+
+  async getSnippetStats(): Promise<SnippetStatsResponse> {
+    const response = await this.api.get('/snippets/stats/overview');
     return response.data;
   }
 

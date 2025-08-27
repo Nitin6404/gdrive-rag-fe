@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, ExternalLink, Copy, RefreshCw, MessageSquare, Loader2 } from 'lucide-react';
-import { useRAGQuery } from '../hooks/useApi';
-import type { RAGQueryRequest, RAGResponse, RAGSource } from '../types/api';
+import { Send, Bot, User, ExternalLink, Copy, RefreshCw, MessageSquare, Loader2, FileText, GitCompare, Layers } from 'lucide-react';
+import { useRAGQuery, useConversationRAG, useMultiStepRAG, useSummarizeDocument, useCompareDocuments } from '../hooks/useApi';
+import type { RAGQueryRequest, RAGResponse, RAGSource, ConversationHistory } from '../types/api';
 import { cn } from '../lib/utils';
 import { ChatMessageSkeleton } from './LoadingSkeletons';
 
@@ -12,6 +12,12 @@ interface Message {
   sources?: RAGSource[];
   timestamp: Date;
   isLoading?: boolean;
+  ragType?: 'standard' | 'conversation' | 'multi-step' | 'summarize' | 'compare';
+  metadata?: {
+    steps?: number;
+    documentIds?: string[];
+    summaryType?: string;
+  };
 }
 
 interface ChatPanelProps {
@@ -19,6 +25,7 @@ interface ChatPanelProps {
   contextId?: string;
   contextType?: 'folder' | 'document';
   className?: string;
+  documentIds?: string[]; // For document comparison and summarization
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -26,11 +33,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   contextId,
   contextType,
   className,
+  documentIds = [],
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [conversationId, setConversationId] = useState<string | undefined>();
+  const [sessionId, setSessionId] = useState<string>(`session-${Date.now()}`);
   const [isComposing, setIsComposing] = useState(false);
+  const [ragMode, setRagMode] = useState<'standard' | 'conversation' | 'multi-step' | 'summarize' | 'compare'>('standard');
+  const [conversationHistory, setConversationHistory] = useState<ConversationHistory[]>([]);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -38,35 +49,76 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const ragMutation = useRAGQuery({
     onSuccess: (data: RAGResponse, variables: RAGQueryRequest) => {
-      // Update the loading message with the response
-      setMessages(prev => prev.map(msg => 
-        msg.isLoading ? {
-          ...msg,
-          content: data.answer,
-          sources: data.sources,
-          isLoading: false,
-        } : msg
-      ));
-      
-      // Store conversation ID for follow-up queries
+      updateLoadingMessage(data.answer, data.sources, 'standard');
+      updateConversationHistory(variables.query, data.answer);
       if (data.conversationId) {
         setConversationId(data.conversationId);
       }
     },
     onError: (error) => {
-      // Update the loading message with error
-      setMessages(prev => prev.map(msg => 
-        msg.isLoading ? {
-          ...msg,
-          content: `Sorry, I encountered an error: ${error.message}`,
-          isLoading: false,
-        } : msg
-      ));
-    },
-    reset: () => {
-      // Reset error state
+      updateLoadingMessage(`Sorry, I encountered an error: ${error.message}`, undefined, 'standard');
     },
   });
+
+  const conversationMutation = useConversationRAG({
+    onSuccess: (data: RAGResponse, variables) => {
+      updateLoadingMessage(data.answer, data.sources, 'conversation');
+      updateConversationHistory(variables.message, data.answer);
+    },
+    onError: (error) => {
+      updateLoadingMessage(`Sorry, I encountered an error: ${error.message}`, undefined, 'conversation');
+    },
+  });
+
+  const multiStepMutation = useMultiStepRAG({
+    onSuccess: (data: RAGResponse, variables) => {
+      updateLoadingMessage(data.answer, data.sources, 'multi-step', { steps: variables.maxSteps });
+      updateConversationHistory(variables.question, data.answer);
+    },
+    onError: (error) => {
+      updateLoadingMessage(`Sorry, I encountered an error: ${error.message}`, undefined, 'multi-step');
+    },
+  });
+
+  const summarizeMutation = useSummarizeDocument({
+    onSuccess: (data: RAGResponse, variables) => {
+      updateLoadingMessage(data.answer, data.sources, 'summarize', { 
+        documentIds: [variables.documentId],
+        summaryType: variables.summaryType 
+      });
+    },
+    onError: (error) => {
+      updateLoadingMessage(`Sorry, I encountered an error: ${error.message}`, undefined, 'summarize');
+    },
+  });
+
+  const compareMutation = useCompareDocuments({
+    onSuccess: (data: RAGResponse, variables) => {
+      updateLoadingMessage(data.answer, data.sources, 'compare', { 
+        documentIds: variables.documentIds 
+      });
+    },
+    onError: (error) => {
+      updateLoadingMessage(`Sorry, I encountered an error: ${error.message}`, undefined, 'compare');
+    },
+  });
+
+  const updateLoadingMessage = (content: string, sources?: RAGSource[], ragType?: 'standard' | 'conversation' | 'multi-step' | 'summarize' | 'compare', metadata?: any) => {
+    setMessages(prev => prev.map(msg => 
+      msg.isLoading ? {
+        ...msg,
+        content,
+        sources,
+        isLoading: false,
+        ragType,
+        metadata,
+      } : msg
+    ));
+  };
+
+  const updateConversationHistory = (question: string, answer: string) => {
+    setConversationHistory(prev => [...prev, { question, answer }]);
+  };
 
   // Handle initial query
   useEffect(() => {
@@ -85,14 +137,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     inputRef.current?.focus();
   }, []);
 
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim() || ragMutation.isPending) return;
+  const handleSendMessage = async (content: string, mode?: typeof ragMode) => {
+    const currentMode = mode || ragMode;
+    const isAnyMutationPending = ragMutation.isPending || conversationMutation.isPending || 
+                                multiStepMutation.isPending || summarizeMutation.isPending || 
+                                compareMutation.isPending;
+    
+    if (!content.trim() || isAnyMutationPending) return;
 
     const userMessage: Message = {
       id: `user-${Date.now()}`,
       type: 'user',
       content: content.trim(),
       timestamp: new Date(),
+      ragType: currentMode,
     };
 
     const loadingMessage: Message = {
@@ -101,20 +159,64 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       content: '',
       timestamp: new Date(),
       isLoading: true,
+      ragType: currentMode,
     };
 
     setMessages(prev => [...prev, userMessage, loadingMessage]);
     setInputValue('');
 
-    // Prepare RAG query
-    const ragRequest: RAGQueryRequest = {
-      query: content.trim(),
-      folderId: contextType === 'folder' ? contextId : undefined,
-      contextType,
-      maxResults: 5,
-    };
-
-    ragMutation.mutate(ragRequest);
+    // Execute based on RAG mode
+    switch (currentMode) {
+      case 'conversation':
+        conversationMutation.mutate({
+          sessionId,
+          message: content.trim(),
+          conversationHistory,
+        });
+        break;
+      
+      case 'multi-step':
+        multiStepMutation.mutate({
+          question: content.trim(),
+          maxSteps: 3,
+        });
+        break;
+      
+      case 'summarize':
+        if (contextId && contextType === 'document') {
+          summarizeMutation.mutate({
+            documentId: contextId,
+            summaryType: 'detailed',
+          });
+        } else {
+          updateLoadingMessage('Please select a document to summarize.', undefined, 'summarize');
+        }
+        break;
+      
+      case 'compare':
+        if (documentIds.length >= 2) {
+          compareMutation.mutate({
+            documentIds,
+            comparisonAspect: 'content',
+            focusAreas: ['similarities', 'differences'],
+          });
+        } else {
+          updateLoadingMessage('Please select at least 2 documents to compare.', undefined, 'compare');
+        }
+        break;
+      
+      default:
+        // Standard RAG query
+        const ragRequest: RAGQueryRequest = {
+          question: content.trim(),
+          folderId: contextType === 'folder' ? contextId : undefined,
+          contextType,
+          maxResults: 5,
+          conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
+        };
+        ragMutation.mutate(ragRequest);
+        break;
+    }
   };
 
   const handleInputSubmit = (e: React.FormEvent) => {
@@ -167,7 +269,34 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const clearConversation = () => {
     setMessages([]);
     setConversationId(undefined);
+    setSessionId(`session-${Date.now()}`);
+    setConversationHistory([]);
     inputRef.current?.focus();
+  };
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'summarize':
+        setRagMode('summarize');
+        if (contextId && contextType === 'document') {
+          handleSendMessage('Please provide a detailed summary of this document.', 'summarize');
+        } else {
+          setInputValue('Please select a document to summarize.');
+        }
+        break;
+      case 'compare':
+        setRagMode('compare');
+        if (documentIds.length >= 2) {
+          handleSendMessage('Please compare these documents.', 'compare');
+        } else {
+          setInputValue('Please select at least 2 documents to compare.');
+        }
+        break;
+      case 'multi-step':
+        setRagMode('multi-step');
+        setInputValue('Ask a complex question that requires multi-step reasoning...');
+        break;
+    }
   };
 
   return (
@@ -182,17 +311,68 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               {contextType === 'folder' ? 'Folder Context' : 'Document Context'}
             </span>
           )}
+          {documentIds.length > 0 && (
+            <span className="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+              {documentIds.length} docs selected
+            </span>
+          )}
         </div>
         
-        {messages.length > 0 && (
-          <button
-            onClick={clearConversation}
-            className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        <div className="flex items-center space-x-2">
+          {/* RAG Mode Selector */}
+          <select
+            value={ragMode}
+            onChange={(e) => setRagMode(e.target.value as typeof ragMode)}
+            className="text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500"
           >
-            Clear Chat
-          </button>
-        )}
+            <option value="standard">Standard</option>
+            <option value="conversation">Conversation</option>
+            <option value="multi-step">Multi-step</option>
+            <option value="summarize">Summarize</option>
+            <option value="compare">Compare</option>
+          </select>
+          
+          {messages.length > 0 && (
+            <button
+              onClick={clearConversation}
+              className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              Clear Chat
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Quick Actions */}
+      {messages.length === 0 && (
+        <div className="p-4 border-b border-gray-200 bg-gray-50">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => handleQuickAction('summarize')}
+              disabled={!contextId || contextType !== 'document'}
+              className="flex items-center px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <FileText className="h-3 w-3 mr-1" />
+              Summarize Document
+            </button>
+            <button
+              onClick={() => handleQuickAction('compare')}
+              disabled={documentIds.length < 2}
+              className="flex items-center px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <GitCompare className="h-3 w-3 mr-1" />
+              Compare Documents
+            </button>
+            <button
+              onClick={() => handleQuickAction('multi-step')}
+              className="flex items-center px-3 py-2 text-xs bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              <Layers className="h-3 w-3 mr-1" />
+              Complex Analysis
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div 
@@ -204,8 +384,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             <Bot className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">Ask me anything</h3>
             <p className="text-gray-500 max-w-md mx-auto">
-              I can help you find information, summarize documents, answer questions, and more.
+              I can help you find information, summarize documents, answer questions, compare documents, and provide multi-step analysis.
               {contextType && ' I\'ll focus on the selected context.'}
+              {documentIds.length > 0 && ` I can work with your ${documentIds.length} selected documents.`}
             </p>
           </div>
         ) : (
@@ -241,6 +422,18 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     <ChatMessageSkeleton />
                   ) : (
                     <div className="prose prose-sm max-w-none">
+                      {message.ragType && message.ragType !== 'standard' && (
+                        <div className="mb-2 flex items-center text-xs text-gray-500">
+                          {message.ragType === 'conversation' && <MessageSquare className="h-3 w-3 mr-1" />}
+                          {message.ragType === 'multi-step' && <Layers className="h-3 w-3 mr-1" />}
+                          {message.ragType === 'summarize' && <FileText className="h-3 w-3 mr-1" />}
+                          {message.ragType === 'compare' && <GitCompare className="h-3 w-3 mr-1" />}
+                          <span className="capitalize">{message.ragType} Response</span>
+                          {message.metadata?.steps && (
+                            <span className="ml-1">({message.metadata.steps} steps)</span>
+                          )}
+                        </div>
+                      )}
                       <p className="whitespace-pre-wrap">{message.content}</p>
                     </div>
                   )}
@@ -334,19 +527,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
               rows={1}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
               style={{ minHeight: '48px', maxHeight: '120px' }}
-              disabled={ragMutation.isPending}
+              disabled={ragMutation.isPending || conversationMutation.isPending || multiStepMutation.isPending || summarizeMutation.isPending || compareMutation.isPending}
             />
           </div>
           <button
             type="submit"
-            disabled={!inputValue.trim() || ragMutation.isPending}
-            className="flex-shrink-0 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-          >
-            {ragMutation.isPending ? (
-              <Loader2 className="h-5 w-5 animate-spin" />
-            ) : (
-              <Send className="h-5 w-5" />
-            )}
+            disabled={!inputValue.trim() || ragMutation.isPending || conversationMutation.isPending || multiStepMutation.isPending || summarizeMutation.isPending || compareMutation.isPending}
+              className="flex-shrink-0 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {(ragMutation.isPending || conversationMutation.isPending || multiStepMutation.isPending || summarizeMutation.isPending || compareMutation.isPending) ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
           </button>
         </form>
         

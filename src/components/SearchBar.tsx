@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, MessageSquare, ChevronDown, X, Loader2 } from 'lucide-react';
-import { useAutocomplete } from '../hooks/useApi';
+import { Search, MessageSquare, ChevronDown, X, Loader2, Sparkles } from 'lucide-react';
+import { useAutocomplete, useSearchSuggestions, useFolders } from '../hooks/useApi';
 import { cn } from '../lib/utils';
 import { AutocompleteSkeleton } from './LoadingSkeletons';
 import { ErrorDisplay } from './ErrorBoundary';
 
 interface SearchBarProps {
   onSearch: (query: string, context?: { type: 'folder' | 'document'; id: string }) => void;
+  onSemanticSearch: (query: string, context?: { type: 'folder' | 'document'; id: string }) => void;
   onRAGQuery: (query: string, context?: { type: 'folder' | 'document'; id: string }) => void;
   placeholder?: string;
   className?: string;
@@ -20,6 +21,7 @@ interface ContextOption {
 
 const SearchBar: React.FC<SearchBarProps> = ({
   onSearch,
+  onSemanticSearch,
   onRAGQuery,
   placeholder = "Search documents or ask a question...",
   className,
@@ -29,19 +31,23 @@ const SearchBar: React.FC<SearchBarProps> = ({
   const [selectedContext, setSelectedContext] = useState<ContextOption | null>(null);
   const [showContextDropdown, setShowContextDropdown] = useState(false);
   const [showAutocomplete, setShowAutocomplete] = useState(false);
-  const [searchMode, setSearchMode] = useState<'search' | 'rag'>('search');
+  const [searchMode, setSearchMode] = useState<'search' | 'semantic' | 'rag'>('search');
   const [isComposing, setIsComposing] = useState(false);
   
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
-  // Mock context options - in real app, these would come from API
+  // Fetch folders from API
+  const { data: foldersData } = useFolders(undefined, 20);
+  
   const contextOptions: ContextOption[] = [
     { id: 'all', name: 'All Documents', type: 'folder' },
-    { id: 'reports', name: 'Reports Folder', type: 'folder' },
-    { id: 'presentations', name: 'Presentations', type: 'folder' },
-    { id: 'contracts', name: 'Contracts', type: 'folder' },
+    ...(foldersData?.folders?.map(folder => ({
+      id: folder.id,
+      name: folder.name,
+      type: 'folder' as const
+    })) || [])
   ];
 
   // Debounce the query input
@@ -55,14 +61,36 @@ const SearchBar: React.FC<SearchBarProps> = ({
     return () => clearTimeout(timer);
   }, [query, isComposing]);
 
-  // Fetch autocomplete suggestions
+  // Fetch autocomplete suggestions (legacy)
   const {
-    data: suggestions,
-    isLoading: isLoadingSuggestions,
-    error: suggestionsError,
+    data: autocompleteSuggestions,
+    isLoading: isLoadingAutocomplete,
+    error: autocompleteError,
   } = useAutocomplete(debouncedQuery, {
-    enabled: !!debouncedQuery && debouncedQuery.length > 2,
+    enabled: !!debouncedQuery && debouncedQuery.length > 2 && searchMode === 'search',
   });
+
+  // Fetch enhanced search suggestions
+  const {
+    data: searchSuggestionsData,
+    isLoading: isLoadingSearchSuggestions,
+    error: searchSuggestionsError,
+  } = useSearchSuggestions(debouncedQuery, 5, {
+    enabled: !!debouncedQuery && debouncedQuery.length > 1 && (searchMode === 'semantic' || searchMode === 'rag'),
+  });
+
+  // Combine suggestions based on search mode
+  const suggestions = searchMode === 'search' 
+    ? autocompleteSuggestions 
+    : searchSuggestionsData?.suggestions || [];
+  
+  const isLoadingSuggestions = searchMode === 'search' 
+    ? isLoadingAutocomplete 
+    : isLoadingSearchSuggestions;
+  
+  const suggestionsError = searchMode === 'search' 
+    ? autocompleteError 
+    : searchSuggestionsError;
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -81,6 +109,8 @@ const SearchBar: React.FC<SearchBarProps> = ({
       
       if (searchMode === 'rag') {
         onRAGQuery(query.trim(), context);
+      } else if (searchMode === 'semantic') {
+        onSemanticSearch(query.trim(), context);
       } else {
         onSearch(query.trim(), context);
       }
@@ -133,24 +163,39 @@ const SearchBar: React.FC<SearchBarProps> = ({
           type="button"
           onClick={() => setSearchMode('search')}
           className={cn(
-            'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors',
+            'flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors',
             searchMode === 'search'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
           )}
         >
-          Search Documents
+          <Search className="inline h-4 w-4 mr-1" />
+          Keyword
+        </button>
+        <button
+          type="button"
+          onClick={() => setSearchMode('semantic')}
+          className={cn(
+            'flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors',
+            searchMode === 'semantic'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          )}
+        >
+          <Sparkles className="inline h-4 w-4 mr-1" />
+          Semantic
         </button>
         <button
           type="button"
           onClick={() => setSearchMode('rag')}
           className={cn(
-            'flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors',
+            'flex-1 py-2 px-3 rounded-md text-sm font-medium transition-colors',
             searchMode === 'rag'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
           )}
         >
+          <MessageSquare className="inline h-4 w-4 mr-1" />
           Ask AI
         </button>
       </div>
@@ -222,6 +267,8 @@ const SearchBar: React.FC<SearchBarProps> = ({
               'px-6 py-3 rounded-r-lg transition-colors inline-flex items-center justify-center',
               searchMode === 'search'
                 ? 'bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300'
+                : searchMode === 'semantic'
+                ? 'bg-purple-600 text-white hover:bg-purple-700 disabled:bg-gray-300'
                 : 'bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-300'
             )}
           >
@@ -229,6 +276,8 @@ const SearchBar: React.FC<SearchBarProps> = ({
               <Loader2 className="h-5 w-5 animate-spin" />
             ) : searchMode === 'search' ? (
               <Search className="h-5 w-5" />
+            ) : searchMode === 'semantic' ? (
+              <Sparkles className="h-5 w-5" />
             ) : (
               <MessageSquare className="h-5 w-5" />
             )}

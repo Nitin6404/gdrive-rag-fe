@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ExternalLink, FileText, Calendar, Folder } from 'lucide-react';
+import { ExternalLink, FileText, Calendar, Folder, BarChart3, Shuffle, TrendingUp } from 'lucide-react';
 import type { SearchResult } from '../types/api';
 import { cn } from '../lib/utils';
 import { ResultsListSkeleton } from './LoadingSkeletons';
 import { ErrorDisplay, EmptyState } from './ErrorBoundary';
+import { useSimilarDocuments, useSearchStats } from '../hooks/useApi';
 
 interface ResultsListProps {
   results: SearchResult[];
@@ -15,6 +16,9 @@ interface ResultsListProps {
   className?: string;
   error?: Error | null;
   onRetry?: () => void;
+  showStats?: boolean;
+  showSimilar?: boolean;
+  selectedDocumentId?: string;
 }
 
 const ResultsList: React.FC<ResultsListProps> = ({
@@ -27,10 +31,40 @@ const ResultsList: React.FC<ResultsListProps> = ({
   className,
   error,
   onRetry,
+  showStats = false,
+  showSimilar = false,
+  selectedDocumentId,
 }) => {
   const [visibleResults, setVisibleResults] = useState<SearchResult[]>([]);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
+  const [showSimilarPanel, setShowSimilarPanel] = useState(false);
   const observerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+
+  // Fetch search stats
+  const {
+    data: searchStatsData,
+    isLoading: isStatsLoading,
+    error: statsError,
+  } = useSearchStats({
+    enabled: showStats && showStatsPanel,
+  });
+
+  // Fetch similar documents
+  const {
+    data: similarDocumentsData,
+    isLoading: isSimilarLoading,
+    error: similarError,
+  } = useSimilarDocuments(
+    selectedDocumentId || '',
+    {
+      limit: 5,
+      threshold: 0.7,
+    },
+    {
+      enabled: showSimilar && showSimilarPanel && !!selectedDocumentId,
+    }
+  );
 
   // Update visible results when results change
   useEffect(() => {
@@ -142,11 +176,125 @@ const ResultsList: React.FC<ResultsListProps> = ({
 
   return (
     <div className={cn('space-y-4', className)} ref={observerRef}>
-      {/* Results Count */}
+      {/* Header with Stats and Similar Documents */}
       {visibleResults.length > 0 && (
-        <div className="text-sm text-gray-600 mb-4">
-          {visibleResults.length} result{visibleResults.length !== 1 ? 's' : ''}
-          {searchQuery && ` for "${searchQuery}"`}
+        <div className="flex items-center justify-between mb-4">
+          <div className="text-sm text-gray-600">
+            {visibleResults.length} result{visibleResults.length !== 1 ? 's' : ''}
+            {searchQuery && ` for "${searchQuery}"`}
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            {showStats && (
+              <button
+                onClick={() => setShowStatsPanel(!showStatsPanel)}
+                className={cn(
+                  'flex items-center px-3 py-1 text-sm rounded-md transition-colors',
+                  showStatsPanel
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                )}
+              >
+                <BarChart3 className="h-4 w-4 mr-1" />
+                Stats
+              </button>
+            )}
+            {showSimilar && selectedDocumentId && (
+              <button
+                onClick={() => setShowSimilarPanel(!showSimilarPanel)}
+                className={cn(
+                  'flex items-center px-3 py-1 text-sm rounded-md transition-colors',
+                  showSimilarPanel
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                )}
+              >
+                <Shuffle className="h-4 w-4 mr-1" />
+                Similar
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stats Panel */}
+      {showStatsPanel && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <h3 className="text-sm font-medium text-blue-900 mb-3 flex items-center">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Search Statistics
+          </h3>
+          {isStatsLoading ? (
+            <div className="animate-pulse space-y-2">
+              <div className="h-4 bg-blue-200 rounded w-3/4"></div>
+              <div className="h-4 bg-blue-200 rounded w-1/2"></div>
+              <div className="h-4 bg-blue-200 rounded w-2/3"></div>
+            </div>
+          ) : statsError ? (
+            <div className="text-red-600 text-sm">Failed to load statistics</div>
+          ) : searchStatsData ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <div className="text-blue-700 font-medium">{searchStatsData.totalDocuments}</div>
+                <div className="text-blue-600">Total Documents</div>
+              </div>
+              <div>
+                <div className="text-blue-700 font-medium">{searchStatsData.indexedDocuments}</div>
+                <div className="text-blue-600">Indexed</div>
+              </div>
+              <div>
+                <div className="text-blue-700 font-medium">{searchStatsData.totalSearches}</div>
+                <div className="text-blue-600">Total Searches</div>
+              </div>
+              <div>
+                <div className="text-blue-700 font-medium">{Math.round(searchStatsData.averageResponseTime)}ms</div>
+                <div className="text-blue-600">Avg Response</div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+
+      {/* Similar Documents Panel */}
+      {showSimilarPanel && selectedDocumentId && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+          <h3 className="text-sm font-medium text-green-900 mb-3 flex items-center">
+            <Shuffle className="h-4 w-4 mr-2" />
+            Similar Documents
+          </h3>
+          {isSimilarLoading ? (
+            <div className="animate-pulse space-y-3">
+              {[...Array(3)].map((_, i) => (
+                <div key={i} className="flex items-center space-x-3">
+                  <div className="h-4 w-4 bg-green-200 rounded"></div>
+                  <div className="h-4 bg-green-200 rounded flex-1"></div>
+                  <div className="h-4 bg-green-200 rounded w-16"></div>
+                </div>
+              ))}
+            </div>
+          ) : similarError ? (
+            <div className="text-red-600 text-sm">Failed to load similar documents</div>
+          ) : similarDocumentsData && similarDocumentsData.length > 0 ? (
+            <div className="space-y-2">
+              {similarDocumentsData.map((doc, index) => (
+                <div
+                  key={doc.id}
+                  onClick={() => onResultClick?.(doc)}
+                  className="flex items-center justify-between p-2 bg-white rounded border border-green-200 hover:border-green-300 cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span className="text-sm text-green-800 truncate">{doc.title || doc.documentName}</span>
+                  </div>
+                  <div className="text-xs text-green-600 ml-2">
+                    {Math.round((doc.score || 0) * 100)}% similar
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-green-600 text-sm">No similar documents found</div>
+          )}
         </div>
       )}
 
