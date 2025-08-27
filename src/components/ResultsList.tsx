@@ -1,10 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ExternalLink, FileText, Calendar, Folder, BarChart3, Shuffle, TrendingUp } from 'lucide-react';
-import type { SearchResult } from '../types/api';
-import { cn } from '../lib/utils';
-import { ResultsListSkeleton } from './LoadingSkeletons';
-import { ErrorDisplay, EmptyState } from './ErrorBoundary';
-import { useSimilarDocuments, useSearchStats } from '../hooks/useApi';
+import React, { useEffect, useRef, useState } from "react";
+import {
+  ExternalLink,
+  FileText,
+  Calendar,
+  Folder,
+  BarChart3,
+  Shuffle,
+  TrendingUp,
+} from "lucide-react";
+import type { SearchResult } from "../types/api";
+import { cn } from "../lib/utils";
+import { ResultsListSkeleton } from "./LoadingSkeletons";
+import { ErrorDisplay, EmptyState } from "./ErrorBoundary";
+import { useSimilarDocuments, useSearchStats } from "../hooks/useApi";
 
 interface ResultsListProps {
   results: SearchResult[];
@@ -27,7 +35,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
   hasMore = false,
   onLoadMore,
   onResultClick,
-  searchQuery = '',
+  searchQuery = "",
   className,
   error,
   onRetry,
@@ -56,14 +64,14 @@ const ResultsList: React.FC<ResultsListProps> = ({
     isLoading: isSimilarLoading,
     error: similarError,
   } = useSimilarDocuments(
-    selectedDocumentId || '',
+    selectedDocumentId || "",
     {
       limit: 5,
       threshold: 0.7,
     },
     {
       enabled: showSimilar && showSimilarPanel && !!selectedDocumentId,
-    }
+    },
   );
 
   // Update visible results when results change
@@ -82,8 +90,8 @@ const ResultsList: React.FC<ResultsListProps> = ({
       },
       {
         threshold: 0.1,
-        rootMargin: '100px',
-      }
+        rootMargin: "100px",
+      },
     );
 
     const currentRef = loadMoreRef.current;
@@ -102,12 +110,18 @@ const ResultsList: React.FC<ResultsListProps> = ({
   const highlightText = (text: string, query: string): React.ReactNode => {
     if (!query.trim()) return text;
 
-    const terms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+    const terms = query
+      .toLowerCase()
+      .split(" ")
+      .filter((term) => term.length > 0);
     let highlightedText = text;
 
-    terms.forEach(term => {
-      const regex = new RegExp(`(${term})`, 'gi');
-      highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
+    terms.forEach((term) => {
+      const regex = new RegExp(`(${term})`, "gi");
+      highlightedText = highlightedText.replace(
+        regex,
+        '<mark class="bg-yellow-200 px-1 rounded">$1</mark>',
+      );
     });
 
     return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
@@ -117,10 +131,10 @@ const ResultsList: React.FC<ResultsListProps> = ({
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return dateString;
@@ -130,7 +144,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
   // Handle result card click
   const handleResultClick = (result: SearchResult, event: React.MouseEvent) => {
     // Don't trigger if clicking on external link
-    if ((event.target as HTMLElement).closest('.external-link')) {
+    if ((event.target as HTMLElement).closest(".external-link")) {
       return;
     }
     onResultClick?.(result);
@@ -139,7 +153,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
   // Handle external link click
   const handleExternalLinkClick = (url: string, event: React.MouseEvent) => {
     event.stopPropagation();
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   // Show loading skeleton for initial load
@@ -149,13 +163,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
 
   // Show error state
   if (error && visibleResults.length === 0) {
-    return (
-      <ErrorDisplay 
-        error={error} 
-        onRetry={onRetry}
-        className="mt-8"
-      />
-    );
+    return <ErrorDisplay error={error} onRetry={onRetry} className="mt-8" />;
   }
 
   // Show empty state when no results and not loading
@@ -163,36 +171,45 @@ const ResultsList: React.FC<ResultsListProps> = ({
     return (
       <EmptyState
         title="No results found"
-        description={searchQuery ? `No documents match "${searchQuery}"` : 'Try searching for documents or asking a question'}
+        description={
+          searchQuery
+            ? `No documents match "${searchQuery}"`
+            : "Try searching for documents or asking a question"
+        }
         icon={<FileText className="h-12 w-12 text-gray-400" />}
-        action={onRetry ? {
-          label: "Try again",
-          onClick: onRetry
-        } : undefined}
-        className={cn('mt-8', className)}
+        action={
+          onRetry
+            ? {
+                label: "Try again",
+                onClick: onRetry,
+              }
+            : undefined
+        }
+        className={cn("mt-8", className)}
       />
     );
   }
 
   return (
-    <div className={cn('space-y-4', className)} ref={observerRef}>
+    <div className={cn("space-y-4", className)} ref={observerRef}>
       {/* Header with Stats and Similar Documents */}
       {visibleResults.length > 0 && (
         <div className="flex items-center justify-between mb-4">
           <div className="text-sm text-gray-600">
-            {visibleResults.length} result{visibleResults.length !== 1 ? 's' : ''}
+            {visibleResults.length} result
+            {visibleResults.length !== 1 ? "s" : ""}
             {searchQuery && ` for "${searchQuery}"`}
           </div>
-          
+
           <div className="flex items-center space-x-2">
             {showStats && (
               <button
                 onClick={() => setShowStatsPanel(!showStatsPanel)}
                 className={cn(
-                  'flex items-center px-3 py-1 text-sm rounded-md transition-colors',
+                  "flex items-center px-3 py-1 text-sm rounded-md transition-colors",
                   showStatsPanel
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200",
                 )}
               >
                 <BarChart3 className="h-4 w-4 mr-1" />
@@ -203,10 +220,10 @@ const ResultsList: React.FC<ResultsListProps> = ({
               <button
                 onClick={() => setShowSimilarPanel(!showSimilarPanel)}
                 className={cn(
-                  'flex items-center px-3 py-1 text-sm rounded-md transition-colors',
+                  "flex items-center px-3 py-1 text-sm rounded-md transition-colors",
                   showSimilarPanel
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? "bg-green-100 text-green-700"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200",
                 )}
               >
                 <Shuffle className="h-4 w-4 mr-1" />
@@ -231,23 +248,33 @@ const ResultsList: React.FC<ResultsListProps> = ({
               <div className="h-4 bg-blue-200 rounded w-2/3"></div>
             </div>
           ) : statsError ? (
-            <div className="text-red-600 text-sm">Failed to load statistics</div>
+            <div className="text-red-600 text-sm">
+              Failed to load statistics
+            </div>
           ) : searchStatsData ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
-                <div className="text-blue-700 font-medium">{searchStatsData.totalDocuments}</div>
+                <div className="text-blue-700 font-medium">
+                  {searchStatsData.totalDocuments}
+                </div>
                 <div className="text-blue-600">Total Documents</div>
               </div>
               <div>
-                <div className="text-blue-700 font-medium">{searchStatsData.indexedDocuments}</div>
+                <div className="text-blue-700 font-medium">
+                  {searchStatsData.indexedDocuments}
+                </div>
                 <div className="text-blue-600">Indexed</div>
               </div>
               <div>
-                <div className="text-blue-700 font-medium">{searchStatsData.totalSearches}</div>
+                <div className="text-blue-700 font-medium">
+                  {searchStatsData.totalSearches}
+                </div>
                 <div className="text-blue-600">Total Searches</div>
               </div>
               <div>
-                <div className="text-blue-700 font-medium">{Math.round(searchStatsData.averageResponseTime)}ms</div>
+                <div className="text-blue-700 font-medium">
+                  {Math.round(searchStatsData.averageResponseTime)}ms
+                </div>
                 <div className="text-blue-600">Avg Response</div>
               </div>
             </div>
@@ -273,7 +300,9 @@ const ResultsList: React.FC<ResultsListProps> = ({
               ))}
             </div>
           ) : similarError ? (
-            <div className="text-red-600 text-sm">Failed to load similar documents</div>
+            <div className="text-red-600 text-sm">
+              Failed to load similar documents
+            </div>
           ) : similarDocumentsData && similarDocumentsData.length > 0 ? (
             <div className="space-y-2">
               {similarDocumentsData.map((doc, index) => (
@@ -284,7 +313,9 @@ const ResultsList: React.FC<ResultsListProps> = ({
                 >
                   <div className="flex items-center space-x-2 flex-1 min-w-0">
                     <FileText className="h-4 w-4 text-green-600 flex-shrink-0" />
-                    <span className="text-sm text-green-800 truncate">{doc.title || doc.documentName}</span>
+                    <span className="text-sm text-green-800 truncate">
+                      {doc.title || doc.documentName}
+                    </span>
                   </div>
                   <div className="text-xs text-green-600 ml-2">
                     {Math.round((doc.score || 0) * 100)}% similar
@@ -293,7 +324,9 @@ const ResultsList: React.FC<ResultsListProps> = ({
               ))}
             </div>
           ) : (
-            <div className="text-green-600 text-sm">No similar documents found</div>
+            <div className="text-green-600 text-sm">
+              No similar documents found
+            </div>
           )}
         </div>
       )}
@@ -310,7 +343,10 @@ const ResultsList: React.FC<ResultsListProps> = ({
             <div className="flex items-start justify-between mb-3">
               <div className="flex-1 min-w-0">
                 <h3 className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
-                  {highlightText(result.title || result.documentName, searchQuery)}
+                  {highlightText(
+                    result.title || result.documentName,
+                    searchQuery,
+                  )}
                 </h3>
                 <div className="flex items-center mt-1 text-sm text-gray-500 space-x-4">
                   {result.folderName && (
@@ -330,7 +366,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
                   )}
                 </div>
               </div>
-              
+
               {/* External Link Button */}
               <button
                 onClick={(e) => handleExternalLinkClick(result.driveUrl, e)}
@@ -354,10 +390,8 @@ const ResultsList: React.FC<ResultsListProps> = ({
                 <FileText className="h-4 w-4 mr-1" />
                 <span className="truncate">{result.documentName}</span>
               </div>
-              
-              <div className="text-xs text-gray-400">
-                Click to preview
-              </div>
+
+              <div className="text-xs text-gray-400">Click to preview</div>
             </div>
           </div>
         ))}
@@ -367,7 +401,10 @@ const ResultsList: React.FC<ResultsListProps> = ({
       {isLoading && (
         <div className="space-y-4">
           {[...Array(3)].map((_, index) => (
-            <div key={index} className="bg-white border border-gray-200 rounded-lg p-6 animate-pulse">
+            <div
+              key={index}
+              className="bg-white border border-gray-200 rounded-lg p-6 animate-pulse"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
@@ -394,7 +431,10 @@ const ResultsList: React.FC<ResultsListProps> = ({
 
       {/* Load More Trigger */}
       {hasMore && !isLoading && (
-        <div ref={loadMoreRef} className="h-10 flex items-center justify-center">
+        <div
+          ref={loadMoreRef}
+          className="h-10 flex items-center justify-center"
+        >
           <div className="text-sm text-gray-500">Loading more results...</div>
         </div>
       )}
@@ -402,10 +442,7 @@ const ResultsList: React.FC<ResultsListProps> = ({
       {/* Error state for load more */}
       {error && visibleResults.length > 0 && (
         <div className="mt-4">
-          <ErrorDisplay 
-            error={error} 
-            onRetry={onRetry}
-          />
+          <ErrorDisplay error={error} onRetry={onRetry} />
         </div>
       )}
 

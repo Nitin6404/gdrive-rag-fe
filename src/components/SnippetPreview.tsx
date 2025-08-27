@@ -1,10 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { X, ExternalLink, ChevronDown, ChevronUp, FileText, User, Calendar, Download, Search, RefreshCw } from 'lucide-react';
-import { useDocument, useSnippets, useDocumentSnippets, useSpecificSnippet, useSnippetSearch } from '../hooks/useApi';
-import type { SearchResult } from '../types/api';
-import { cn } from '../lib/utils';
-import { SnippetPreviewSkeleton } from './LoadingSkeletons';
-import { ErrorDisplay, EmptyState } from './ErrorBoundary';
+import React, { useState, useEffect } from "react";
+import {
+  X,
+  ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  User,
+  Calendar,
+  Download,
+  Search,
+  RefreshCw,
+} from "lucide-react";
+import {
+  useDocument,
+  useSnippets,
+  useDocumentSnippets,
+  useSpecificSnippet,
+  useSnippetSearch,
+} from "../hooks/useApi";
+import type { SearchResult } from "../types/api";
+import { cn } from "../lib/utils";
+import { SnippetPreviewSkeleton } from "./LoadingSkeletons";
+import { ErrorDisplay, EmptyState } from "./ErrorBoundary";
 
 interface SnippetPreviewProps {
   result: SearchResult | null;
@@ -18,21 +35,25 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
   result,
   isOpen,
   onClose,
-  searchQuery = '',
+  searchQuery = "",
   className,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeSnippetIndex, setActiveSnippetIndex] = useState(0);
-  const [snippetSearchQuery, setSnippetSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'relevant' | 'all' | 'search'>('relevant');
-  const [selectedChunkIndex, setSelectedChunkIndex] = useState<number | null>(null);
+  const [snippetSearchQuery, setSnippetSearchQuery] = useState("");
+  const [viewMode, setViewMode] = useState<"relevant" | "all" | "search">(
+    "relevant",
+  );
+  const [selectedChunkIndex, setSelectedChunkIndex] = useState<number | null>(
+    null,
+  );
 
   // Fetch document details
   const {
     data: documentData,
     isLoading: isDocumentLoading,
     error: documentError,
-  } = useDocument(result?.id || '', {
+  } = useDocument(result?.id || "", {
     enabled: !!result?.id && isOpen,
   });
 
@@ -44,13 +65,13 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
     refetch: refetchSnippets,
   } = useSnippets(
     {
-      documentId: result?.id || '',
+      documentId: result?.id || "",
       query: searchQuery,
       maxSnippets: 5,
     },
     {
-      enabled: !!result?.id && isOpen && viewMode === 'relevant',
-    }
+      enabled: !!result?.id && isOpen && viewMode === "relevant",
+    },
   );
 
   // Fetch all document snippets
@@ -60,14 +81,14 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
     error: allSnippetsError,
     refetch: refetchAllSnippets,
   } = useDocumentSnippets(
-    result?.id || '',
+    result?.id || "",
     {
       limit: 50,
       includeText: true,
     },
     {
-      enabled: !!result?.id && isOpen && viewMode === 'all',
-    }
+      enabled: !!result?.id && isOpen && viewMode === "all",
+    },
   );
 
   // Fetch specific snippet
@@ -75,13 +96,9 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
     data: specificSnippetData,
     isLoading: isSpecificSnippetLoading,
     error: specificSnippetError,
-  } = useSpecificSnippet(
-    result?.id || '',
-    selectedChunkIndex || 0,
-    {
-      enabled: !!result?.id && isOpen && selectedChunkIndex !== null,
-    }
-  );
+  } = useSpecificSnippet(result?.id || "", selectedChunkIndex || 0, {
+    enabled: !!result?.id && isOpen && selectedChunkIndex !== null,
+  });
 
   // Search snippets
   const {
@@ -96,8 +113,12 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
       documentIds: result?.id ? [result.id] : [],
     },
     {
-      enabled: !!result?.id && isOpen && viewMode === 'search' && snippetSearchQuery.length > 2,
-    }
+      enabled:
+        !!result?.id &&
+        isOpen &&
+        viewMode === "search" &&
+        snippetSearchQuery.length > 2,
+    },
   );
 
   // Reset state when result changes
@@ -105,8 +126,8 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
     if (result) {
       setIsExpanded(false);
       setActiveSnippetIndex(0);
-      setSnippetSearchQuery('');
-      setViewMode('relevant');
+      setSnippetSearchQuery("");
+      setViewMode("relevant");
       setSelectedChunkIndex(null);
     }
   }, [result]);
@@ -114,25 +135,31 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
   // Handle escape key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
+      if (e.key === "Escape" && isOpen) {
         onClose();
       }
     };
 
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
   }, [isOpen, onClose]);
 
   // Highlight search terms
   const highlightText = (text: string, query: string): React.ReactNode => {
     if (!query.trim()) return text;
 
-    const terms = query.toLowerCase().split(' ').filter(term => term.length > 0);
+    const terms = query
+      .toLowerCase()
+      .split(" ")
+      .filter((term) => term.length > 0);
     let highlightedText = text;
 
-    terms.forEach(term => {
-      const regex = new RegExp(`(${term})`, 'gi');
-      highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 px-1 rounded">$1</mark>');
+    terms.forEach((term) => {
+      const regex = new RegExp(`(${term})`, "gi");
+      highlightedText = highlightedText.replace(
+        regex,
+        '<mark class="bg-yellow-200 px-1 rounded">$1</mark>',
+      );
     });
 
     return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
@@ -142,12 +169,12 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch {
       return dateString;
@@ -156,17 +183,17 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
 
   // Format file size
   const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) return '0 Bytes';
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
   // Handle external link click
   const handleExternalLinkClick = () => {
     if (result?.driveUrl) {
-      window.open(result.driveUrl, '_blank', 'noopener,noreferrer');
+      window.open(result.driveUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -174,17 +201,26 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
     return null;
   }
 
-  const isLoading = isDocumentLoading || isSnippetsLoading || isAllSnippetsLoading || isSpecificSnippetLoading || isSearchSnippetsLoading;
-  const hasSnippetsError = snippetsError || allSnippetsError || specificSnippetError || searchSnippetsError;
+  const isLoading =
+    isDocumentLoading ||
+    isSnippetsLoading ||
+    isAllSnippetsLoading ||
+    isSpecificSnippetLoading ||
+    isSearchSnippetsLoading;
+  const hasSnippetsError =
+    snippetsError ||
+    allSnippetsError ||
+    specificSnippetError ||
+    searchSnippetsError;
 
   // Get current snippets based on view mode
   const getCurrentSnippets = () => {
     switch (viewMode) {
-      case 'relevant':
+      case "relevant":
         return snippetsData?.snippets || [];
-      case 'all':
+      case "all":
         return allSnippetsData?.snippets || [];
-      case 'search':
+      case "search":
         return searchSnippetsData?.snippets || [];
       default:
         return [];
@@ -197,12 +233,12 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
   const handleSnippetSearch = (query: string) => {
     setSnippetSearchQuery(query);
     if (query.length > 2) {
-      setViewMode('search');
+      setViewMode("search");
     }
   };
 
   // Handle view mode change
-  const handleViewModeChange = (mode: 'relevant' | 'all' | 'search') => {
+  const handleViewModeChange = (mode: "relevant" | "all" | "search") => {
     setViewMode(mode);
     setActiveSnippetIndex(0);
     setSelectedChunkIndex(null);
@@ -215,10 +251,12 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className={cn(
-        'bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col',
-        className
-      )}>
+      <div
+        className={cn(
+          "bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col",
+          className,
+        )}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex-1 min-w-0">
@@ -238,7 +276,7 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
               </span>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2 ml-4">
             <button
               onClick={handleExternalLinkClick}
@@ -262,21 +300,21 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
             <SnippetPreviewSkeleton />
           ) : documentError ? (
             <div className="flex-1 flex items-center justify-center">
-              <ErrorDisplay 
-                error={documentError} 
+              <ErrorDisplay
+                error={documentError}
                 title="Failed to load document"
                 onRetry={() => window.location.reload()}
               />
             </div>
           ) : hasSnippetsError ? (
             <div className="flex-1 flex items-center justify-center">
-              <ErrorDisplay 
-                error={hasSnippetsError} 
+              <ErrorDisplay
+                error={hasSnippetsError}
                 title="Failed to load snippets"
                 onRetry={() => {
-                  if (viewMode === 'relevant') refetchSnippets();
-                  else if (viewMode === 'all') refetchAllSnippets();
-                  else if (viewMode === 'search') refetchSearchSnippets();
+                  if (viewMode === "relevant") refetchSnippets();
+                  else if (viewMode === "all") refetchAllSnippets();
+                  else if (viewMode === "search") refetchSearchSnippets();
                 }}
               />
             </div>
@@ -290,28 +328,38 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                       <div className="flex items-center">
                         <User className="h-4 w-4 mr-2 text-gray-400" />
                         <span className="text-gray-600">Owner:</span>
-                        <span className="ml-1 font-medium">{documentData.metadata.owner}</span>
+                        <span className="ml-1 font-medium">
+                          {documentData.metadata.owner}
+                        </span>
                       </div>
                     )}
                     <div className="flex items-center">
                       <FileText className="h-4 w-4 mr-2 text-gray-400" />
                       <span className="text-gray-600">Type:</span>
-                      <span className="ml-1 font-medium">{documentData.metadata.fileType}</span>
+                      <span className="ml-1 font-medium">
+                        {documentData.metadata.fileType}
+                      </span>
                     </div>
                     <div className="flex items-center">
                       <Download className="h-4 w-4 mr-2 text-gray-400" />
                       <span className="text-gray-600">Size:</span>
-                      <span className="ml-1 font-medium">{formatFileSize(documentData.metadata.size)}</span>
+                      <span className="ml-1 font-medium">
+                        {formatFileSize(documentData.metadata.size)}
+                      </span>
                     </div>
                   </div>
                   <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                     <div>
                       <span className="text-gray-600">Created:</span>
-                      <span className="ml-1 font-medium">{formatDate(documentData.metadata.dateCreated)}</span>
+                      <span className="ml-1 font-medium">
+                        {formatDate(documentData.metadata.dateCreated)}
+                      </span>
                     </div>
                     <div>
                       <span className="text-gray-600">Modified:</span>
-                      <span className="ml-1 font-medium">{formatDate(documentData.metadata.dateModified)}</span>
+                      <span className="ml-1 font-medium">
+                        {formatDate(documentData.metadata.dateModified)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -322,34 +370,34 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                 {/* View Mode Tabs */}
                 <div className="flex space-x-1 mb-4">
                   <button
-                    onClick={() => handleViewModeChange('relevant')}
+                    onClick={() => handleViewModeChange("relevant")}
                     className={cn(
-                      'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                      viewMode === 'relevant'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                      "px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                      viewMode === "relevant"
+                        ? "bg-blue-100 text-blue-700"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
                     )}
                   >
                     Relevant
                   </button>
                   <button
-                    onClick={() => handleViewModeChange('all')}
+                    onClick={() => handleViewModeChange("all")}
                     className={cn(
-                      'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                      viewMode === 'all'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                      "px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                      viewMode === "all"
+                        ? "bg-blue-100 text-blue-700"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
                     )}
                   >
                     All Snippets
                   </button>
                   <button
-                    onClick={() => handleViewModeChange('search')}
+                    onClick={() => handleViewModeChange("search")}
                     className={cn(
-                      'px-3 py-2 text-sm font-medium rounded-md transition-colors',
-                      viewMode === 'search'
-                        ? 'bg-blue-100 text-blue-700'
-                        : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                      "px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                      viewMode === "search"
+                        ? "bg-blue-100 text-blue-700"
+                        : "text-gray-500 hover:text-gray-700 hover:bg-gray-100",
                     )}
                   >
                     Search
@@ -357,7 +405,7 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                 </div>
 
                 {/* Snippet Search */}
-                {viewMode === 'search' && (
+                {viewMode === "search" && (
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
@@ -376,15 +424,18 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-medium text-gray-900">
-                      {viewMode === 'relevant' && `Relevant Excerpts ${searchQuery ? `for "${searchQuery}"` : ''}`}
-                      {viewMode === 'all' && 'All Document Snippets'}
-                      {viewMode === 'search' && `Search Results ${snippetSearchQuery ? `for "${snippetSearchQuery}"` : ''}`}
+                      {viewMode === "relevant" &&
+                        `Relevant Excerpts ${searchQuery ? `for "${searchQuery}"` : ""}`}
+                      {viewMode === "all" && "All Document Snippets"}
+                      {viewMode === "search" &&
+                        `Search Results ${snippetSearchQuery ? `for "${snippetSearchQuery}"` : ""}`}
                     </h3>
                     <span className="text-sm text-gray-500">
-                      {currentSnippets.length} snippet{currentSnippets.length !== 1 ? 's' : ''}
+                      {currentSnippets.length} snippet
+                      {currentSnippets.length !== 1 ? "s" : ""}
                     </span>
                   </div>
-                  
+
                   {/* Snippet Navigation */}
                   {currentSnippets.length > 1 && (
                     <div className="flex flex-wrap gap-2 mb-4">
@@ -393,18 +444,22 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                           key={index}
                           onClick={() => {
                             setActiveSnippetIndex(index);
-                            if (viewMode === 'all' && snippet.chunkIndex !== undefined) {
+                            if (
+                              viewMode === "all" &&
+                              snippet.chunkIndex !== undefined
+                            ) {
                               handleChunkSelection(snippet.chunkIndex);
                             }
                           }}
                           className={cn(
-                            'px-3 py-1 text-sm rounded-md transition-colors',
+                            "px-3 py-1 text-sm rounded-md transition-colors",
                             activeSnippetIndex === index
-                              ? 'bg-blue-100 text-blue-700'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-gray-100 text-gray-600 hover:bg-gray-200",
                           )}
                         >
-                          {viewMode === 'all' && snippet.chunkIndex !== undefined
+                          {viewMode === "all" &&
+                          snippet.chunkIndex !== undefined
                             ? `Chunk ${snippet.chunkIndex + 1}`
                             : `Excerpt ${index + 1}`}
                           {snippet.relevanceScore && (
@@ -423,33 +478,50 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                       <p className="text-gray-700 leading-relaxed">
                         {highlightText(
                           currentSnippets[activeSnippetIndex].text,
-                          viewMode === 'search' ? snippetSearchQuery : searchQuery
+                          viewMode === "search"
+                            ? snippetSearchQuery
+                            : searchQuery,
                         )}
                       </p>
                     </div>
-                    
+
                     <div className="mt-3 flex items-center justify-between text-xs text-gray-500">
                       <div className="flex items-center space-x-4">
                         {currentSnippets[activeSnippetIndex].relevanceScore && (
                           <span>
-                            Relevance: {Math.round(currentSnippets[activeSnippetIndex].relevanceScore! * 100)}%
+                            Relevance:{" "}
+                            {Math.round(
+                              currentSnippets[activeSnippetIndex]
+                                .relevanceScore! * 100,
+                            )}
+                            %
                           </span>
                         )}
-                        {currentSnippets[activeSnippetIndex].chunkIndex !== undefined && (
+                        {currentSnippets[activeSnippetIndex].chunkIndex !==
+                          undefined && (
                           <span>
-                            Chunk: {currentSnippets[activeSnippetIndex].chunkIndex! + 1}
+                            Chunk:{" "}
+                            {currentSnippets[activeSnippetIndex].chunkIndex! +
+                              1}
                           </span>
                         )}
-                        {viewMode === 'all' && currentSnippets[activeSnippetIndex].chunkIndex !== undefined && (
-                          <button
-                            onClick={() => handleChunkSelection(currentSnippets[activeSnippetIndex].chunkIndex!)}
-                            className="text-blue-600 hover:text-blue-800 underline"
-                          >
-                            View with context
-                          </button>
-                        )}
+                        {viewMode === "all" &&
+                          currentSnippets[activeSnippetIndex].chunkIndex !==
+                            undefined && (
+                            <button
+                              onClick={() =>
+                                handleChunkSelection(
+                                  currentSnippets[activeSnippetIndex]
+                                    .chunkIndex!,
+                                )
+                              }
+                              className="text-blue-600 hover:text-blue-800 underline"
+                            >
+                              View with context
+                            </button>
+                          )}
                       </div>
-                      {viewMode === 'search' && (
+                      {viewMode === "search" && (
                         <button
                           onClick={() => refetchSearchSnippets()}
                           className="flex items-center text-blue-600 hover:text-blue-800"
@@ -469,12 +541,19 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                       </h4>
                       <div className="prose max-w-none">
                         <p className="text-blue-800 leading-relaxed text-sm">
-                          {highlightText(specificSnippetData.text, viewMode === 'search' ? snippetSearchQuery : searchQuery)}
+                          {highlightText(
+                            specificSnippetData.text,
+                            viewMode === "search"
+                              ? snippetSearchQuery
+                              : searchQuery,
+                          )}
                         </p>
                       </div>
                       {specificSnippetData.context && (
                         <div className="mt-3">
-                          <h5 className="text-xs font-medium text-blue-700 mb-1">Surrounding Context:</h5>
+                          <h5 className="text-xs font-medium text-blue-700 mb-1">
+                            Surrounding Context:
+                          </h5>
                           <div className="text-xs text-blue-600 space-y-1">
                             {specificSnippetData.context.before && (
                               <p>...{specificSnippetData.context.before}</p>
@@ -490,14 +569,18 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                 </div>
               ) : (
                 <div className="p-6">
-                  <EmptyState 
-                    title={viewMode === 'search' ? 'No search results' : 'No excerpts found'}
+                  <EmptyState
+                    title={
+                      viewMode === "search"
+                        ? "No search results"
+                        : "No excerpts found"
+                    }
                     description={
-                      viewMode === 'search' && snippetSearchQuery
+                      viewMode === "search" && snippetSearchQuery
                         ? `No snippets found for "${snippetSearchQuery}" in this document.`
-                        : viewMode === 'relevant' && searchQuery
-                        ? `No relevant excerpts found for "${searchQuery}" in this document.`
-                        : 'No excerpts available for this document.'
+                        : viewMode === "relevant" && searchQuery
+                          ? `No relevant excerpts found for "${searchQuery}" in this document.`
+                          : "No excerpts available for this document."
                     }
                   />
                 </div>
@@ -522,7 +605,7 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
                       </>
                     )}
                   </button>
-                  
+
                   {isExpanded && (
                     <div className="p-6 border-t border-gray-200 bg-gray-50">
                       <div className="prose max-w-none">
@@ -541,7 +624,9 @@ const SnippetPreview: React.FC<SnippetPreviewProps> = ({
         {/* Footer */}
         <div className="flex items-center justify-between p-6 border-t border-gray-200 bg-gray-50">
           <div className="text-sm text-gray-500">
-            Press <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">Esc</kbd> to close
+            Press{" "}
+            <kbd className="px-2 py-1 bg-gray-200 rounded text-xs">Esc</kbd> to
+            close
           </div>
           <button
             onClick={handleExternalLinkClick}

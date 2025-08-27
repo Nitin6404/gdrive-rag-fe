@@ -19,7 +19,7 @@ export interface SearchResponse {
 export interface RAGQueryRequest {
   query: string;
   folderId?: string;
-  contextType?: 'folder' | 'document';
+  contextType?: "folder" | "document";
   maxResults?: number;
 }
 
@@ -82,7 +82,7 @@ export interface UploadDocumentRequest {
 
 export interface UploadDocumentResponse {
   documentId: string;
-  status: 'success' | 'processing' | 'error';
+  status: "success" | "processing" | "error";
   message?: string;
 }
 
@@ -155,18 +155,21 @@ export interface IndexedDocumentsResponse {
 }
 
 export interface FoldersResponse {
-  folders: Array<{
-    id: string;
-    name: string;
-    parentId?: string;
-    childCount: number;
-  }>;
+  success: boolean;
+  data: {
+    folders: Array<{
+      id: string;
+      name: string;
+      parentId?: string;
+      childCount: number;
+    }>;
+  };
   total: number;
 }
 
 // RAG Types
 export interface ConversationHistory {
-  role: 'user' | 'assistant';
+  role: "user" | "assistant";
   content: string;
   timestamp: string;
 }
@@ -184,7 +187,7 @@ export interface ConversationRAGRequest {
 
 export interface SummarizeRequest {
   documentId: string;
-  summaryType?: 'brief' | 'detailed' | 'bullet-points';
+  summaryType?: "brief" | "detailed" | "bullet-points";
 }
 
 export interface CompareDocumentsRequest {

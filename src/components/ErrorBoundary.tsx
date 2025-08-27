@@ -1,5 +1,5 @@
-import React,  { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import React, { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlertTriangle, RefreshCw } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
     this.setState({
       error,
       errorInfo,
@@ -53,10 +53,11 @@ export class ErrorBoundary extends Component<Props, State> {
               Something went wrong
             </h2>
             <p className="text-gray-600 mb-6">
-              We encountered an unexpected error. Please try refreshing the page or contact support if the problem persists.
+              We encountered an unexpected error. Please try refreshing the page
+              or contact support if the problem persists.
             </p>
-            
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+
+            {process.env.NODE_ENV === "development" && this.state.error && (
               <details className="mb-6 text-left">
                 <summary className="cursor-pointer text-sm font-medium text-gray-700 mb-2">
                   Error Details (Development)
@@ -69,7 +70,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </div>
               </details>
             )}
-            
+
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={this.handleRetry}
@@ -99,20 +100,18 @@ export const ErrorDisplay: React.FC<{
   error: Error | string;
   onRetry?: () => void;
   className?: string;
-}> = ({ error, onRetry, className = '' }) => {
-  const errorMessage = typeof error === 'string' ? error : error.message;
+}> = ({ error, onRetry, className = "" }) => {
+  const errorMessage = typeof error === "string" ? error : error.message;
 
   return (
-    <div className={`bg-red-50 border border-red-200 rounded-lg p-4 ${className}`}>
+    <div
+      className={`bg-red-50 border border-red-200 rounded-lg p-4 ${className}`}
+    >
       <div className="flex items-start">
         <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
         <div className="flex-1">
-          <h3 className="text-sm font-medium text-red-800 mb-1">
-            Error
-          </h3>
-          <p className="text-sm text-red-700">
-            {errorMessage}
-          </p>
+          <h3 className="text-sm font-medium text-red-800 mb-1">Error</h3>
+          <p className="text-sm text-red-700">{errorMessage}</p>
           {onRetry && (
             <button
               onClick={onRetry}
@@ -131,9 +130,11 @@ export const ErrorDisplay: React.FC<{
 export const NetworkError: React.FC<{
   onRetry?: () => void;
   className?: string;
-}> = ({ onRetry, className = '' }) => {
+}> = ({ onRetry, className = "" }) => {
   return (
-    <div className={`bg-yellow-50 border border-yellow-200 rounded-lg p-4 ${className}`}>
+    <div
+      className={`bg-yellow-50 border border-yellow-200 rounded-lg p-4 ${className}`}
+    >
       <div className="flex items-start">
         <AlertTriangle className="h-5 w-5 text-yellow-500 mt-0.5 mr-3 flex-shrink-0" />
         <div className="flex-1">
@@ -141,7 +142,8 @@ export const NetworkError: React.FC<{
             Connection Error
           </h3>
           <p className="text-sm text-yellow-700">
-            Unable to connect to the server. Please check your internet connection.
+            Unable to connect to the server. Please check your internet
+            connection.
           </p>
           {onRetry && (
             <button
@@ -167,20 +169,12 @@ export const EmptyState: React.FC<{
   };
   icon?: React.ReactNode;
   className?: string;
-}> = ({ title, description, action, icon, className = '' }) => {
+}> = ({ title, description, action, icon, className = "" }) => {
   return (
     <div className={`text-center py-12 ${className}`}>
-      {icon && (
-        <div className="flex justify-center mb-4">
-          {icon}
-        </div>
-      )}
-      <h3 className="text-lg font-medium text-gray-900 mb-2">
-        {title}
-      </h3>
-      <p className="text-gray-600 mb-6 max-w-sm mx-auto">
-        {description}
-      </p>
+      {icon && <div className="flex justify-center mb-4">{icon}</div>}
+      <h3 className="text-lg font-medium text-gray-900 mb-2">{title}</h3>
+      <p className="text-gray-600 mb-6 max-w-sm mx-auto">{description}</p>
       {action && (
         <button
           onClick={action.onClick}

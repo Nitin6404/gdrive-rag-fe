@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 // Search Bar Loading Skeleton
 export const SearchBarSkeleton: React.FC = () => {
@@ -21,7 +21,10 @@ export const ResultsListSkeleton: React.FC = () => {
   return (
     <div className="space-y-4">
       {Array.from({ length: 6 }).map((_, index) => (
-        <div key={index} className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse">
+        <div
+          key={index}
+          className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse"
+        >
           <div className="flex items-start justify-between mb-3">
             <div className="h-5 bg-gray-200 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 rounded w-16"></div>
@@ -94,7 +97,10 @@ export const AutocompleteSkeleton: React.FC = () => {
     <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-lg mt-1 z-50">
       <div className="p-2 space-y-1">
         {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="h-8 bg-gray-200 rounded animate-pulse"></div>
+          <div
+            key={index}
+            className="h-8 bg-gray-200 rounded animate-pulse"
+          ></div>
         ))}
       </div>
     </div>
@@ -102,9 +108,13 @@ export const AutocompleteSkeleton: React.FC = () => {
 };
 
 // Generic Card Loading Skeleton
-export const CardSkeleton: React.FC<{ className?: string }> = ({ className = '' }) => {
+export const CardSkeleton: React.FC<{ className?: string }> = ({
+  className = "",
+}) => {
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 p-6 animate-pulse ${className}`}>
+    <div
+      className={`bg-white rounded-lg border border-gray-200 p-6 animate-pulse ${className}`}
+    >
       <div className="h-5 bg-gray-200 rounded w-3/4 mb-3"></div>
       <div className="space-y-2 mb-4">
         <div className="h-4 bg-gray-200 rounded w-full"></div>
