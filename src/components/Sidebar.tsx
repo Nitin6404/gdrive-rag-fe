@@ -18,12 +18,13 @@ import type {
   DocumentListResponse,
   DocumentDetails,
 } from "../types/api";
+import { Loader2, Plus } from "lucide-react";
 
 interface FolderNode {
   id: string;
   name: string;
   parentId?: string;
-  childCount: number;
+  totalFiles: number;
   children?: FolderNode[];
   documents?: DocumentDetails[];
   isExpanded?: boolean;
@@ -36,6 +37,25 @@ interface SidebarProps {
   onFolderSelect: (folderId: string) => void;
   onDocumentSelect: (documentId: string, document: DocumentDetails) => void;
 }
+
+const updateFolderState = (
+  folders: FolderNode[],
+  folderId: string,
+  updates: Partial<FolderNode>
+): FolderNode[] => {
+  return folders.map((folder) => {
+    if (folder.id === folderId) {
+      return { ...folder, ...updates };
+    }
+    if (folder.children) {
+      return {
+        ...folder,
+        children: updateFolderState(folder.children, folderId, updates),
+      };
+    }
+    return folder;
+  });
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   selectedFolderId,
@@ -151,7 +171,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       id: string;
       name: string;
       parentId?: string;
-      childCount: number;
+      totalFiles: number;
     }>
   ): FolderNode[] => {
     const folderMap = new Map<string, FolderNode>();
@@ -193,9 +213,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     } else {
       setExpandedFolders((prev) => new Set(prev).add(folderId));
 
-      // Load documents for this folder if not already loaded
       const folder = findFolderInTree(folderTree, folderId);
       if (folder && !folder.documents) {
+        // mark as loading
+        setFolderTree((prevTree) =>
+          updateFolderState(prevTree, folderId, { isLoading: true })
+        );
+
+        // fetch child content
         await loadFolderDocuments(folderId);
       }
     }
@@ -220,6 +245,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const loadFolderDocuments = async (folderId: string) => {
     try {
       const response = await apiService.getDocuments({ folderId, limit: 100 });
+      console.log("response", response);
 
       setFolderTree((prevTree) => {
         const updateFolder = (folders: FolderNode[]): FolderNode[] => {
@@ -227,7 +253,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             if (folder.id === folderId) {
               return {
                 ...folder,
-                documents: response.documents,
+                documents: response.data.files,
                 isLoading: false,
               };
             }
@@ -340,7 +366,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => toggleFolder(folder.id)}
         >
           <div className="flex items-center flex-1 min-w-0">
-            {folder.childCount > 0 ? (
+            {folder.totalFiles > 0 ? (
               isExpanded ? (
                 <ChevronDownIcon className="h-4 w-4 mr-1 flex-shrink-0" />
               ) : (
@@ -352,18 +378,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-500" />
             <span className="truncate">{folder.name}</span>
           </div>
-          {folder.childCount > 0 && (
+          {folder.totalFiles > 0 && (
             <span className="text-xs text-gray-400 ml-1">
-              ({folder.childCount})
+              ({folder.totalFiles})
             </span>
           )}
         </div>
 
         {isExpanded && (
           <div className="ml-4">
-            {/* Render child folders */}
-            {folder.children?.map((child) => renderFolder(child, level + 1))}
-
             {/* Render documents */}
             {hasDocuments && (
               <div className="mt-1">
@@ -379,48 +402,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => handleDocumentClick(document)}
                   >
                     <DocumentTextIcon className="h-4 w-4 mr-2 flex-shrink-0 text-gray-400" />
-                    <span className="truncate flex-1">{document.title}</span>
-                    <div className="flex items-center space-x-1 ml-2">
-                      {showBulkActions && (
-                        <input
-                          type="checkbox"
-                          checked={selectedDocuments.has(document.id)}
-                          onChange={(e) =>
-                            handleDocumentSelect(e as any, document.id)
-                          }
-                          onClick={(e) => e.stopPropagation()}
-                          className="w-3 h-3 text-blue-600 rounded focus:ring-blue-500"
-                        />
-                      )}
-                      {indexingDocuments.has(document.id) ? (
-                        <div className="p-1" title="Indexing...">
-                          <Cog6ToothIcon className="h-3 w-3 animate-spin text-blue-500" />
-                        </div>
-                      ) : indexedDocuments.has(document.id) ? (
-                        <div className="p-1" title="Successfully indexed">
-                          <CheckIcon className="h-3 w-3 text-green-500" />
-                        </div>
-                      ) : (
-                        <button
-                          onClick={(e) => handleIndexClick(e, document.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-200 rounded transition-all"
-                          title="Index this document"
-                        >
-                          <PlusIcon className="h-3 w-3" />
-                        </button>
-                      )}
+                    <span className="truncate flex-1">{document.name}</span>
+
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={(e) => handleIndexClick(e, document.id)}
+                        className="p-1 rounded transition-colors bg-blue-100 text-blue-600"
+                        title="Index document"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
               </div>
             )}
 
+            {/* Loading state */}
             {folder.isLoading && (
               <div
-                className="px-2 py-1.5 text-xs text-gray-500"
+                className="px-2 py-1.5 text-xs text-gray-500 flex items-center"
                 style={{ paddingLeft: `${(level + 1) * 16 + 8}px` }}
               >
-                Loading documents...
+                <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             )}
           </div>
